@@ -84,6 +84,12 @@ falta, pero no tiene sentido implementarlo antes de tener algo que consumir).
   correcta de la misma regla, no un incumplimiento.
 - `backend/tests/Paretto.Api.Tests/Paretto.Api.Tests.csproj` (new) — proyecto xUnit, referencia
   `Paretto.Api` + `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory`).
+- `backend/src/Paretto.Api/nswag.json` (new — reubicado desde `frontend/nswag.json` durante la
+  revisión de Block 2, ver nota ahí) — configuración de NSwag apuntando a
+  `https://localhost:7126/swagger/v1/swagger.json`, output relativo
+  `../../../frontend/src/app/core/api-client/api-client.generated.ts`, cliente Angular/TypeScript.
+  Vive junto al proyecto que expone el OpenAPI (el insumo), no junto al que solo consume el
+  resultado generado.
 
 **Logic**
 
@@ -141,9 +147,17 @@ tests pasan.
   preparado), `provideRouter(routes)`, providers de ng-zorro (`provideNzI18n`, íconos).
 - `frontend/src/app/app.routes.ts` (new) — array de rutas vacío por ahora (Block 8 agrega
   `/login`, `/register`).
-- `frontend/nswag.json` (new) — configuración de NSwag apuntando a
-  `https://localhost:{puerto}/swagger/v1/swagger.json`, output
-  `frontend/src/app/core/api-client/api-client.generated.ts`, cliente Angular/TypeScript.
+- `frontend/src/app/core/api-client/.gitkeep` (new) — reserva la carpeta donde NSwag va a generar
+  el cliente en Block 8.
+
+> **Corrección aplicada durante CODE (no en el archivo original de este bloque):** la configuración
+> de NSwag (`nswag.json`) se movió a `backend/src/Paretto.Api/nswag.json` — ver Block 1. Se
+> detectó durante la revisión del Bloque 2 que un archivo de configuración de build cuyo insumo es
+> el propio backend (genera el cliente a partir de su OpenAPI) pertenece conceptualmente a ese
+> proyecto, no al frontend que solo consume el resultado. No hay borde `CODE→PLAN` en el grafo de
+> transiciones para un re-paso formal por PLAN; se trató como corrección de implementación
+> (ubicación de un archivo de configuración, sin cambio de comportamiento) y se documentó acá en
+> vez de silenciarla.
 
 **Logic**
 Workspace mínimo que compila y sirve. Sin rutas de negocio todavía — eso llega en Block 8, una vez
@@ -414,9 +428,10 @@ Los 3 tests pasan.
 ## Block 8 — Cliente NSwag + feature `auth` en Angular
 
 **Files**
-- `frontend/src/app/core/api-client/api-client.generated.ts` (generated — NSwag CLI contra
-  `swagger.json` de `Paretto.Api`, comando documentado en `frontend/package.json` como script `npm
-  run generate:api-client`. **Nunca editado a mano.**)
+- `frontend/src/app/core/api-client/api-client.generated.ts` (generated — NSwag CLI usando
+  `backend/src/Paretto.Api/nswag.json` (ver Block 1) contra el `swagger.json` de `Paretto.Api`,
+  comando documentado en `backend/src/Paretto.Api/README` o script equivalente. **Nunca editado a
+  mano.**)
 - `frontend/src/app/features/auth/data/auth.service.ts` (new)
 - `frontend/src/app/features/auth/state/session.store.ts` (new)
 - `frontend/src/app/core/interceptors/auth.interceptor.ts` (new)
