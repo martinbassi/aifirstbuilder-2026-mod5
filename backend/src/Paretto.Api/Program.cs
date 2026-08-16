@@ -50,6 +50,12 @@ builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 // the same situation Block 5 documented above for IPasswordHasher.
 builder.Services.AddScoped<ISessionTokenGenerator, SessionTokenGenerator>();
 
+// Block 7 (LogoutCommandHandler) needs IHttpContextAccessor to read the raw token off the current
+// request's Authorization header. Contrary to a common misconception, ASP.NET Core does NOT
+// register IHttpContextAccessor by default just from AddControllers() — it is opt-in and must be
+// added explicitly.
+builder.Services.AddHttpContextAccessor();
+
 // Block 6: real session-based authentication scheme (opaque token -> Sessions row lookup, not JWT
 // — PLAN decision, see spec Block 6 and docs/daw/security/threat-FEAT-001a.md), replacing Block 1's
 // placeholder AddAuthentication()/AddAuthorization().

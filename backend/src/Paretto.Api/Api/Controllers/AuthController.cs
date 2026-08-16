@@ -51,4 +51,18 @@ public class AuthController : ControllerBase
         var response = await _mediator.Send(command, cancellationToken);
         return Ok(response);
     }
+
+    /// <summary>
+    /// Invalidates the caller's current session immediately (deletes its `Sessions` row) — does not
+    /// depend on the token expiring on its own. Requires a valid session ([Authorize]): the auth
+    /// pipeline (SessionAuthenticationHandler, Block 6) already rejects with 401 before this action
+    /// runs if there is none, so no extra logic is needed here for that case.
+    /// </summary>
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
+    {
+        await _mediator.Send(new LogoutCommand(), cancellationToken);
+        return NoContent();
+    }
 }
