@@ -14,6 +14,8 @@ public class AppDbContext : DbContext
 
     public DbSet<Session> Sessions => Set<Session>();
 
+    public DbSet<Mural> Murals => Set<Mural>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -44,6 +46,25 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(s => s.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Mural>(entity =>
+        {
+            // Blobs se nombran `{Guid}{extensión}`, muy por debajo del límite.
+            entity.Property(m => m.PhotoBlobName).IsRequired().HasMaxLength(300);
+            entity.Property(m => m.Latitude).IsRequired();
+            entity.Property(m => m.Longitude).IsRequired();
+            entity.Property(m => m.Status).IsRequired().HasDefaultValue(MuralStatus.Pending);
+            entity.Property(m => m.CreatedAt).IsRequired();
+
+            // A diferencia de Session (que cascadea), Restrict: un mural es contenido generado por
+            // el usuario y no debe desaparecer silenciosamente si en el futuro se implementara
+            // borrado de cuentas — decisión conservadora, no hay requisito de borrado de cuenta en
+            // este PRD ni en el de FEAT-001a.
+            entity.HasOne(m => m.User)
+                .WithMany()
+                .HasForeignKey(m => m.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }
