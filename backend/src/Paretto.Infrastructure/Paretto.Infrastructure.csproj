@@ -30,6 +30,17 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.11" />
   </ItemGroup>
 
+  <!--
+    Block 2 (Storage: almacenamiento de fotos): AzureBlobStorageService needs BlobServiceClient /
+    BlobContainerClient / BlobSasBuilder. 12.29.1 is the latest stable release on nuget.org (not a
+    beta), the first version whose dependency graph explicitly targets net10.0, and was verified
+    with "dotnet list package" in vulnerable mode (see report) to have no known Critical/High
+    advisories.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.29.1" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

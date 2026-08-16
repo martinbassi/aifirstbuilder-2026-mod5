@@ -9,6 +9,7 @@ using Paretto.Api.Common.Middleware;
 using Paretto.Infrastructure.Auth;
 using Paretto.Infrastructure.Data;
 using Paretto.Infrastructure.Security;
+using Paretto.Infrastructure.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,6 +50,13 @@ builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 // needs the container to resolve it — Block 4 created the service but did not register it, exactly
 // the same situation Block 5 documented above for IPasswordHasher.
 builder.Services.AddScoped<ISessionTokenGenerator, SessionTokenGenerator>();
+
+// Block 2 (FEAT-001b) creates IBlobStorageService/AzureBlobStorageService but has no consumer yet —
+// its first real consumer is CreateMuralCommandHandler in Block 4 (FEAT-001b), not implemented at
+// the time this registration is added. Same situation already documented above for
+// IPasswordHasher/ISessionTokenGenerator: register now so the container can resolve it once that
+// Handler exists, rather than leaving a registration gap for that later block to remember.
+builder.Services.AddScoped<IBlobStorageService, AzureBlobStorageService>();
 
 // Block 7 (LogoutCommandHandler) needs IHttpContextAccessor to read the raw token off the current
 // request's Authorization header. Contrary to a common misconception, ASP.NET Core does NOT
