@@ -1,0 +1,28 @@
+<form nz-form [formGroup]="form" (ngSubmit)="submit()">
+  @if (errorMessage(); as message) {
+    <nz-alert nzType="error" [nzMessage]="message" nzShowIcon data-testid="error-message" />
+  }
+
+  <nz-form-item>
+    <nz-form-label nzFor="login-username" nzRequired>Usuario</nz-form-label>
+    <nz-form-control>
+      <input nz-input id="login-username" formControlName="username" autocomplete="username" />
+    </nz-form-control>
+  </nz-form-item>
+
+  <nz-form-item>
+    <nz-form-label nzFor="login-password" nzRequired>Contraseña</nz-form-label>
+    <nz-form-control>
+      <input
+        nz-input
+        id="login-password"
+        type="password"
+        formControlName="password"
+        autocomplete="current-password"
+      />
+    </nz-form-control>
+  </nz-form-item>
+
+  <button nz-button nzType="primary" type="submit" [nzLoading]="submitting()">Ingresar</button>
+  <a routerLink="/register">Crear una cuenta</a>
+</form>

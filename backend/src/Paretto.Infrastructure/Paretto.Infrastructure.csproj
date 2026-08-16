@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Paretto.Domain\Paretto.Domain.csproj" />
+  </ItemGroup>
+
+  <!--
+    Block 6 (Login + esquema de autenticación por sesión): SessionAuthenticationHandler needs
+    `AuthenticationHandler<TOptions>` / `AuthenticationSchemeOptions` (namespace
+    Microsoft.AspNetCore.Authentication). The spec's package table (Block 1) names
+    `Microsoft.AspNetCore.Authentication.Abstractions` as the NuGet package for this — verified
+    during this block that the package is frozen at 2.3.12 (nuget.org), the exact same situation
+    Block 4 already documented for `Microsoft.AspNetCore.Identity` vs.
+    `Microsoft.Extensions.Identity.Core`: it stopped shipping as a standalone package once
+    ASP.NET Core 3.0 moved these APIs into the shared framework. A `FrameworkReference` to
+    `Microsoft.AspNetCore.App` is the framework-recommended way for a class library (non-Web SDK)
+    to consume ASP.NET Core APIs without pulling a legacy/frozen NuGet package — same intent as the
+    spec's justification (implement a custom `AuthenticationHandler<TOptions>`), technically
+    corrected the same way Block 4 corrected the Identity package choice.
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.11" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

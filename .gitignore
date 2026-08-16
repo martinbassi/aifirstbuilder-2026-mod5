@@ -8,3 +8,8 @@
 .daw-sessions/
 .daw-journal.jsonl
 # END DAW
+
+# BEGIN .NET — build output, not committed
+backend/**/bin/
+backend/**/obj/
+# END .NET
