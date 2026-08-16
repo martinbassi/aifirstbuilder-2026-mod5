@@ -1,5 +1,5 @@
 {
-  "runtime": "Net90",
+  "runtime": "Net100",
   "defaultVariables": null,
   "documentGenerator": {
     "fromDocument": {
@@ -13,6 +13,8 @@
     "openApiToTypeScriptClient": {
       "template": "Angular",
       "className": "{controller}Client",
+      "operationGenerationMode": "MultipleClientsFromPathSegments",
+      "exceptionClass": "ApiException",
       "output": "../../../frontend/src/app/core/api-client/api-client.generated.ts",
       "typeScriptVersion": 5.9,
       "generateClientClasses": true,

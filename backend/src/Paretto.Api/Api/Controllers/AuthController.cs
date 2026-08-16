@@ -9,13 +9,19 @@ namespace Paretto.Api.Api.Controllers;
 /// Auth endpoints. Block 5 (Registro) adds `Register`; Block 6 (Login) and Block 7 (Logout) add
 /// their own actions to this same controller afterwards.
 ///
-/// Round 2 correction: this action used to invoke `IValidator&lt;RegisterUserCommand&gt;` by hand
-/// and catch `DuplicateAccountException` itself to build a `ProblemDetails`/`ValidationProblemDetails`
-/// response. Both concerns now live outside the controller — `ValidationBehavior`
-/// (Common/Behaviors) runs FluentValidation automatically as a MediatR pipeline behavior, and
-/// `ExceptionHandlingMiddleware` (Common/Middleware) translates `FluentValidation.ValidationException`
-/// (422) and any `AppException` such as `DuplicateAccountException` (400) into the HTTP response.
-/// The controller only dispatches to `IMediator` and shapes the success response, per AGENTS.md.
+/// Round 2 correction (Block 5): this action used to invoke `IValidator&lt;RegisterUserCommand&gt;`
+/// by hand and catch `DuplicateAccountException` itself to build a
+/// `ProblemDetails`/`ValidationProblemDetails` response. Both concerns now live outside the
+/// controller — `ValidationBehavior` (Common/Behaviors) runs FluentValidation automatically as a
+/// MediatR pipeline behavior, and `ExceptionHandlingMiddleware` (Common/Middleware) translates
+/// `FluentValidation.ValidationException` (422) and any `AppException` such as
+/// `DuplicateAccountException` (400) into the HTTP response. The controller only dispatches to
+/// `IMediator` and shapes the success response, per AGENTS.md.
+///
+/// Round 2 correction (Block 8): actions now carry `[ProducesResponseType]` so Swashbuckle
+/// documents the response bodies in `swagger.json` and NSwag can generate typed methods
+/// (`Observable&lt;RegisterUserResponse&gt;`/`Observable&lt;LoginResponse&gt;`) instead of
+/// `Observable&lt;void&gt;`. Pure OpenAPI metadata — no runtime behavior change.
 /// </summary>
 [ApiController]
 [Route("api/auth")]
@@ -34,6 +40,9 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("register")]
     [AllowAnonymous]
+    [ProducesResponseType(typeof(RegisterUserResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Register([FromBody] RegisterUserCommand command, CancellationToken cancellationToken)
     {
         var response = await _mediator.Send(command, cancellationToken);
@@ -46,6 +55,8 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("login")]
     [AllowAnonymous]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] LoginCommand command, CancellationToken cancellationToken)
     {
         var response = await _mediator.Send(command, cancellationToken);
@@ -60,6 +71,8 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("logout")]
     [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
         await _mediator.Send(new LogoutCommand(), cancellationToken);

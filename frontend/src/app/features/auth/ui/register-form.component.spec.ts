@@ -1,0 +1,72 @@
+import { Component } from '@angular/core';
+import { provideRouter } from '@angular/router';
+import { TestBed } from '@angular/core/testing';
+import { of, throwError } from 'rxjs';
+import { AuthService } from '../data/auth.service';
+import { RegisterFormComponent } from './register-form.component';
+
+@Component({ selector: 'app-dummy-login', template: '' })
+class DummyLoginComponent {}
+
+describe('RegisterFormComponent', () => {
+  let authService: { register: ReturnType<typeof vi.fn> };
+
+  beforeEach(async () => {
+    authService = { register: vi.fn() };
+
+    await TestBed.configureTestingModule({
+      imports: [RegisterFormComponent],
+      providers: [
+        // A successful register() redirects to /login — routed so that navigation resolves
+        // instead of surfacing an unrelated "cannot match any routes" error in these tests.
+        provideRouter([{ path: 'login', component: DummyLoginComponent }]),
+        { provide: AuthService, useValue: authService },
+      ],
+    }).compileComponents();
+  });
+
+  // Required test 3: el mensaje de error mostrado es exactamente el que devuelve el backend, sin
+  // texto adicional que distinga campos.
+  it('muestra exactamente el mensaje genérico del backend, sin agregar distinción de campos', () => {
+    authService.register.mockReturnValue(
+      throwError(() => ({ status: 400, message: 'Username or email is already in use.' })),
+    );
+
+    const fixture = TestBed.createComponent(RegisterFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component.form.setValue({ username: 'ana', email: 'ana@example.com', password: 'Passw0rd' });
+    component.submit();
+    fixture.detectChanges();
+
+    const errorEl: HTMLElement = fixture.nativeElement.querySelector(
+      '[data-testid="error-message"]',
+    );
+    expect(errorEl).toBeTruthy();
+    expect(errorEl.textContent?.trim()).toBe('Username or email is already in use.');
+  });
+
+  it('no muestra ningún mensaje de error cuando no se envió el formulario', () => {
+    const fixture = TestBed.createComponent(RegisterFormComponent);
+    fixture.detectChanges();
+
+    const errorEl = fixture.nativeElement.querySelector('[data-testid="error-message"]');
+    expect(errorEl).toBeFalsy();
+  });
+
+  it('registra exitosamente y no muestra ningún error', () => {
+    authService.register.mockReturnValue(of({ id: 'user-1', username: 'ana' }));
+
+    const fixture = TestBed.createComponent(RegisterFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component.form.setValue({ username: 'ana', email: 'ana@example.com', password: 'Passw0rd' });
+    component.submit();
+    fixture.detectChanges();
+
+    const errorEl = fixture.nativeElement.querySelector('[data-testid="error-message"]');
+    expect(errorEl).toBeFalsy();
+  });
+});

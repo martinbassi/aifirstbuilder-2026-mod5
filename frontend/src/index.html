@@ -1,13 +1,23 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Frontend</title>
-  <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-</head>
-<body>
-  <app-root></app-root>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <title>Frontend</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <!--
+    Mitigation R5 (docs/daw/security/threat-FEAT-001a.md), risk accepted with defense-in-depth: the
+    session token lives in sessionStorage (Block 8, session.store.ts), which is readable by any
+    script that runs on the page — this CSP is the mitigation that reduces the odds of an attacker
+    script running in the first place (no inline scripts, only same-origin resources).
+  -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://localhost:7126; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    />
+  </head>
+  <body>
+    <app-root></app-root>
+  </body>
 </html>
