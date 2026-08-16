@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Paretto.Api.Common.Behaviors;
 using Paretto.Api.Common.Middleware;
 using Paretto.Infrastructure.Data;
+using Paretto.Infrastructure.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,7 +18,14 @@ builder.Services.AddControllers();
 builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
+    // Order: Logging outermost, Validation innermost (still ahead of the Handler). LoggingBehavior
+    // wraps everything in a try/catch that logs any exception with its elapsed time before
+    // rethrowing (see LoggingBehavior) — keeping it outermost means a rejected (invalid) request
+    // still gets that same observability, instead of failing validation silently before logging
+    // ever runs. Round 2 correction of Block 5: ValidationBehavior replaces the manual
+    // `IValidator<T>.ValidateAsync` call AuthController used to make itself.
     cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
+    cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
 });
 
 builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
@@ -29,6 +37,12 @@ builder.Services.AddScoped<IMapper, ServiceMapper>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Block 4 created IPasswordHasher/PasswordHasher but did not register them in DI (its own tests
+// instantiate PasswordHasher directly, see PasswordHasherTests.cs) — Block 5 is the first consumer
+// via the MediatR pipeline, which needs the container to resolve it, so the registration is added
+// here. Minimal, additive one-liner; nothing else in this file's existing wiring changes.
+builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 
 // Full session-based authentication scheme is wired in Block 6; this is the minimal
 // placeholder needed for the pipeline to compile and to reserve UseAuthentication/UseAuthorization
