@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Paretto.Api.Common.Behaviors;
 using Paretto.Api.Common.Middleware;
+using Paretto.Infrastructure.Auth;
 using Paretto.Infrastructure.Data;
 using Paretto.Infrastructure.Security;
 
@@ -44,10 +45,17 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // here. Minimal, additive one-liner; nothing else in this file's existing wiring changes.
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 
-// Full session-based authentication scheme is wired in Block 6; this is the minimal
-// placeholder needed for the pipeline to compile and to reserve UseAuthentication/UseAuthorization
-// order in the middleware pipeline.
-builder.Services.AddAuthentication();
+// Block 6's first consumer of ISessionTokenGenerator via the MediatR pipeline (LoginCommandHandler)
+// needs the container to resolve it — Block 4 created the service but did not register it, exactly
+// the same situation Block 5 documented above for IPasswordHasher.
+builder.Services.AddScoped<ISessionTokenGenerator, SessionTokenGenerator>();
+
+// Block 6: real session-based authentication scheme (opaque token -> Sessions row lookup, not JWT
+// — PLAN decision, see spec Block 6 and docs/daw/security/threat-FEAT-001a.md), replacing Block 1's
+// placeholder AddAuthentication()/AddAuthorization().
+builder.Services.AddAuthentication(SessionAuthenticationHandler.SchemeName)
+    .AddScheme<SessionAuthenticationSchemeOptions, SessionAuthenticationHandler>(
+        SessionAuthenticationHandler.SchemeName, options => { });
 builder.Services.AddAuthorization();
 
 // Mitigation R3 (threat model): basic rate limiting so /login and /register are not left

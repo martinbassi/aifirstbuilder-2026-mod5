@@ -39,4 +39,16 @@ public class AuthController : ControllerBase
         var response = await _mediator.Send(command, cancellationToken);
         return StatusCode(StatusCodes.Status201Created, response);
     }
+
+    /// <summary>
+    /// Authenticates with username/password and issues a session token. Anonymous — this is the
+    /// endpoint that creates the session in the first place, there is no session yet to require.
+    /// </summary>
+    [HttpPost("login")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Login([FromBody] LoginCommand command, CancellationToken cancellationToken)
+    {
+        var response = await _mediator.Send(command, cancellationToken);
+        return Ok(response);
+    }
 }

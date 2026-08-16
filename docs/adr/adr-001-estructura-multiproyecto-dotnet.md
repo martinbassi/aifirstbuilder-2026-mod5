@@ -57,3 +57,19 @@ revisión de arquitectura futura.
 - `Paretto.Domain.csproj` queda como el punto de verificación mecánico de la regla "el dominio nunca
   depende de EF Core directamente" de `AGENTS.md` — un build roto ahí es la señal, no una revisión
   manual.
+- **Relajación puntual documentada (FEAT-001a Block 6):** `Paretto.Infrastructure.csproj` agrega
+  `<FrameworkReference Include="Microsoft.AspNetCore.App" />` para poder implementar
+  `SessionAuthenticationHandler : AuthenticationHandler<TOptions>`. El paquete NuGet original que
+  cubría esa superficie (`Microsoft.AspNetCore.Authentication.Abstractions`) está descontinuado
+  desde ASP.NET Core 3.0 (movido al shared framework), así que un `FrameworkReference` es la única
+  vía soportada por el SDK para una class library. Esto expone toda la superficie de
+  `Microsoft.AspNetCore.App` a `Paretto.Infrastructure` — no solo el subconjunto de Authentication
+  que necesita — aflojando el límite mecánico que esta ADR busca imponer entre capas. Se acepta
+  como costo necesario del diseño actual (no hay forma de referenciar un subconjunto más chico) y
+  queda anotado acá para que no se re-audite como sorpresa en tickets futuros de backend.
+  Efecto colateral relacionado: al quedar `Microsoft.AspNetCore.App` referenciado, el SDK detecta
+  que `Microsoft.Extensions.Identity.Core` (agregado en Block 4 para `PasswordHasher<TUser>`) se
+  superpone con la superficie de Identity ya incluida en el shared framework — se verificó que
+  `PasswordHasher<TUser>` sigue disponible transitivamente sin el paquete explícito, así que el
+  `PackageReference` se eliminó en Block 6 (sin cambios de comportamiento, tests de
+  `PasswordHasherTests` en verde).
