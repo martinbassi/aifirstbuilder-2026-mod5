@@ -91,8 +91,15 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+// SAST finding (CODE closeout, FEAT-001a): Swagger/OpenAPI UI must not be reachable outside
+// Development — exposing the API surface (routes, DTOs, auth requirements) to an unauthenticated
+// caller in Production is a security misconfiguration (OWASP A05:2021), independent of whether any
+// endpoint documented there has its own vulnerability.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseHttpsRedirection();
 
