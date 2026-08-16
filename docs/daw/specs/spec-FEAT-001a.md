@@ -183,6 +183,12 @@ todavía).
 - `backend/src/Paretto.Domain/Entities/Session.cs` (new)
 - `backend/src/Paretto.Domain/Enums/UserRole.cs` (new)
 - `backend/src/Paretto.Infrastructure/Data/AppDbContext.cs` (new)
+- `backend/src/Paretto.Infrastructure/Data/AppDbContextFactory.cs` (new) — `IDesignTimeDbContextFactory<AppDbContext>`
+  usado por la CLI de `dotnet ef` (`migrations add`/`database update`) para construir `AppDbContext`
+  sin pasar por el pipeline de DI de `Paretto.Api`; lee la connection string real de la variable de
+  entorno `ConnectionStrings__DefaultConnection` cuando está presente, con un placeholder sin
+  credenciales como fallback (suficiente para `migrations add`, insuficiente para `database update`
+  real).
 - `backend/src/Paretto.Infrastructure/Data/Migrations/{timestamp}_InitialCreate.cs` (new, generado
   por `dotnet ef migrations add`)
 
