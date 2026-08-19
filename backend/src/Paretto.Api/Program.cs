@@ -8,6 +8,7 @@ using Paretto.Api.Common.Behaviors;
 using Paretto.Api.Common.Middleware;
 using Paretto.Infrastructure.Auth;
 using Paretto.Infrastructure.Data;
+using Paretto.Infrastructure.Moderation;
 using Paretto.Infrastructure.Security;
 using Paretto.Infrastructure.Storage;
 
@@ -57,6 +58,15 @@ builder.Services.AddScoped<ISessionTokenGenerator, SessionTokenGenerator>();
 // IPasswordHasher/ISessionTokenGenerator: register now so the container can resolve it once that
 // Handler exists, rather than leaving a registration gap for that later block to remember.
 builder.Services.AddScoped<IBlobStorageService, AzureBlobStorageService>();
+
+// Block 3 (FEAT-001b): NsfwSpyContentScanner needs its own INsfwClassifier abstraction over the
+// underlying NsfwSpy model — no per-request state in either type (NsfwSpy caches its ML.NET model
+// in a static field internally), so Scoped here mirrors the same lifetime already used above for
+// IBlobStorageService/IPasswordHasher, not a hard requirement of either type. First real consumer
+// is CreateMuralCommandHandler in Block 4 (FEAT-001b), not implemented at the time this
+// registration is added — same situation already documented above for IBlobStorageService.
+builder.Services.AddScoped<INsfwClassifier, NsfwSpyClassifier>();
+builder.Services.AddScoped<INsfwContentScanner, NsfwSpyContentScanner>();
 
 // Block 7 (LogoutCommandHandler) needs IHttpContextAccessor to read the raw token off the current
 // request's Authorization header. Contrary to a common misconception, ASP.NET Core does NOT

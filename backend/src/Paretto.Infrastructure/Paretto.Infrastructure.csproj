@@ -41,6 +41,20 @@
     <PackageReference Include="Azure.Storage.Blobs" Version="12.29.1" />
   </ItemGroup>
 
+  <!--
+    Block 3 (Infrastructure: validación NSFW): NsfwSpyContentScanner wraps NsfwSpyNS.NsfwSpy
+    (ML.NET-based nudity/pornography classifier). 3.5.0 is the latest stable release on nuget.org
+    (not a beta). "dotnet list package vulnerable" flagged its transitive dependency
+    Magick.NET-Q16-AnyCPU 11.1.2 with multiple High-severity advisories — pinned explicitly to
+    14.16.0 (latest stable) below to override that transitive version; NsfwSpy only calls the
+    stable MagickImage(byte[]) constructor and ToByteArray(MagickFormat), unaffected by the
+    major-version bump. Re-verified clean after the pin (see report).
+  -->
+  <ItemGroup>
+    <PackageReference Include="NsfwSpy" Version="3.5.0" />
+    <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.16.0" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

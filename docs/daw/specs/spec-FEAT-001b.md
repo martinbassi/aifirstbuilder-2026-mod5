@@ -210,6 +210,12 @@ recuperarlo vía la URL SAS generada funciona manualmente.
 Los 4 tests anteriores pasan; `ScanAsync` nunca propaga una excepción a su llamador bajo ningún
 escenario ejercitado.
 
+**Nota de trazabilidad — dependencia adicional (WARN de `daw-arch-auditor`)**
+Se agregó `PackageReference` directo a `Magick.NET-Q16-AnyCPU` 14.16.0 en
+`Paretto.Infrastructure.csproj` para pinnear una dependencia transitiva de `NsfwSpy` 3.5.0
+(`Magick.NET-Q16-AnyCPU` 11.1.2) afectada por NU1903 (CVEs High conocidos). Reverificado con
+`dotnet list package --vulnerable --include-transitive` sin hallazgos tras el pin.
+
 ---
 
 ## Block 4 — API: crear mural
