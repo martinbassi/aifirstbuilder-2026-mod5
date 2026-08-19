@@ -213,6 +213,213 @@ export class AuthClient {
     }
 }
 
+@Injectable()
+export class MuralsClient {
+    private http: HttpClient;
+    private baseUrl: string;
+    protected jsonParseReviver: ((key: string, value: any) => any) | undefined = undefined;
+
+    constructor(@Inject(HttpClient) http: HttpClient, @Optional() @Inject(API_BASE_URL) baseUrl?: string) {
+        this.http = http;
+        this.baseUrl = baseUrl ?? "";
+    }
+
+    /**
+     * @param photo (optional) 
+     * @param latitude (optional) 
+     * @param longitude (optional) 
+     * @return Created
+     */
+    muralsPOST(photo?: FileParameter | undefined, latitude?: number | undefined, longitude?: number | undefined): Observable<CreateMuralResponse> {
+        let url_ = this.baseUrl + "/api/murals";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = new FormData();
+        if (photo === null || photo === undefined)
+            throw new globalThis.Error("The parameter 'photo' cannot be null.");
+        else
+            content_.append("Photo", photo.data, photo.fileName ? photo.fileName : "Photo");
+        if (latitude === null || latitude === undefined)
+            throw new globalThis.Error("The parameter 'latitude' cannot be null.");
+        else
+            content_.append("Latitude", latitude.toString());
+        if (longitude === null || longitude === undefined)
+            throw new globalThis.Error("The parameter 'longitude' cannot be null.");
+        else
+            content_.append("Longitude", longitude.toString());
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processMuralsPOST(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processMuralsPOST(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<CreateMuralResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<CreateMuralResponse>;
+        }));
+    }
+
+    protected processMuralsPOST(response: HttpResponseBase): Observable<CreateMuralResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 201) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result201: any = null;
+            let resultData201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result201 = CreateMuralResponse.fromJS(resultData201);
+            return _observableOf(result201);
+            }));
+        } else if (status === 401) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result401: any = null;
+            let resultData401 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result401 = ProblemDetails.fromJS(resultData401);
+            return throwException("Unauthorized", status, _responseText, _headers, result401);
+            }));
+        } else if (status === 422) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result422: any = null;
+            let resultData422 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result422 = ProblemDetails.fromJS(resultData422);
+            return throwException("Unprocessable Content", status, _responseText, _headers, result422);
+            }));
+        } else if (status === 500) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("Internal Server Error", status, _responseText, _headers);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    muralsGET(id: string): Observable<MuralResponse> {
+        let url_ = this.baseUrl + "/api/murals/{id}";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processMuralsGET(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processMuralsGET(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<MuralResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<MuralResponse>;
+        }));
+    }
+
+    protected processMuralsGET(response: HttpResponseBase): Observable<MuralResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = MuralResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 401) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result401: any = null;
+            let resultData401 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result401 = ProblemDetails.fromJS(resultData401);
+            return throwException("Unauthorized", status, _responseText, _headers, result401);
+            }));
+        } else if (status === 404) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result404: any = null;
+            let resultData404 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result404 = ProblemDetails.fromJS(resultData404);
+            return throwException("Not Found", status, _responseText, _headers, result404);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+}
+
+export class CreateMuralResponse implements ICreateMuralResponse {
+    id?: string;
+    status?: string | undefined;
+
+    constructor(data?: ICreateMuralResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.id = _data["id"];
+            this.status = _data["status"];
+        }
+    }
+
+    static fromJS(data: any): CreateMuralResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new CreateMuralResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["id"] = this.id;
+        data["status"] = this.status;
+        return data;
+    }
+}
+
+export interface ICreateMuralResponse {
+    id?: string;
+    status?: string | undefined;
+}
+
 export class LoginCommand implements ILoginCommand {
     username?: string | undefined;
     password?: string | undefined;
@@ -291,6 +498,62 @@ export class LoginResponse implements ILoginResponse {
 export interface ILoginResponse {
     token?: string | undefined;
     expiresAt?: Date;
+}
+
+export class MuralResponse implements IMuralResponse {
+    id?: string;
+    status?: string | undefined;
+    photoUrl?: string | undefined;
+    latitude?: number;
+    longitude?: number;
+    createdAt?: Date;
+
+    constructor(data?: IMuralResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.id = _data["id"];
+            this.status = _data["status"];
+            this.photoUrl = _data["photoUrl"];
+            this.latitude = _data["latitude"];
+            this.longitude = _data["longitude"];
+            this.createdAt = _data["createdAt"] ? new Date(_data["createdAt"].toString()) : undefined as any;
+        }
+    }
+
+    static fromJS(data: any): MuralResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new MuralResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["id"] = this.id;
+        data["status"] = this.status;
+        data["photoUrl"] = this.photoUrl;
+        data["latitude"] = this.latitude;
+        data["longitude"] = this.longitude;
+        data["createdAt"] = this.createdAt ? this.createdAt.toISOString() : undefined as any;
+        return data;
+    }
+}
+
+export interface IMuralResponse {
+    id?: string;
+    status?: string | undefined;
+    photoUrl?: string | undefined;
+    latitude?: number;
+    longitude?: number;
+    createdAt?: Date;
 }
 
 export class ProblemDetails implements IProblemDetails {
@@ -439,6 +702,11 @@ export class RegisterUserResponse implements IRegisterUserResponse {
 export interface IRegisterUserResponse {
     id?: string;
     username?: string | undefined;
+}
+
+export interface FileParameter {
+    data: any;
+    fileName: string;
 }
 
 export class ApiException extends Error {
