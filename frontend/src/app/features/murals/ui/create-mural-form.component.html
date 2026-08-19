@@ -1,0 +1,76 @@
+<form (ngSubmit)="submit()" data-testid="create-mural-form">
+  @if (successMessage(); as message) {
+    <nz-alert nzType="success" [nzMessage]="message" nzShowIcon data-testid="success-message" />
+  }
+
+  @if (errorMessage(); as message) {
+    <nz-alert nzType="error" [nzMessage]="message" nzShowIcon data-testid="error-message" />
+    <button
+      nz-button
+      type="button"
+      (click)="retry()"
+      [nzLoading]="submitting()"
+      data-testid="retry-button"
+    >
+      Reintentar
+    </button>
+  }
+
+  <nz-form-item>
+    <nz-form-label nzFor="mural-photo" nzRequired>Foto</nz-form-label>
+    <nz-form-control>
+      <input
+        type="file"
+        id="mural-photo"
+        accept="image/jpeg,image/png,image/webp"
+        (change)="onFileSelected($event)"
+        data-testid="photo-input"
+      />
+    </nz-form-control>
+  </nz-form-item>
+  @if (fileError(); as message) {
+    <nz-alert nzType="error" [nzMessage]="message" nzShowIcon data-testid="file-error-message" />
+  }
+
+  @if (manualLocationRequired()) {
+    <nz-form-item>
+      <nz-form-label nzFor="mural-latitude" nzRequired>Latitud</nz-form-label>
+      <nz-form-control>
+        <input
+          nz-input
+          type="number"
+          step="any"
+          id="mural-latitude"
+          [value]="latitude()"
+          (input)="onLatitudeChange($event)"
+          data-testid="latitude-input"
+        />
+      </nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label nzFor="mural-longitude" nzRequired>Longitud</nz-form-label>
+      <nz-form-control>
+        <input
+          nz-input
+          type="number"
+          step="any"
+          id="mural-longitude"
+          [value]="longitude()"
+          (input)="onLongitudeChange($event)"
+          data-testid="longitude-input"
+        />
+      </nz-form-control>
+    </nz-form-item>
+  }
+
+  <button
+    nz-button
+    nzType="primary"
+    type="submit"
+    [disabled]="!canSubmit()"
+    [nzLoading]="submitting()"
+    data-testid="submit-button"
+  >
+    Guardar
+  </button>
+</form>
