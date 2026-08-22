@@ -306,6 +306,16 @@ El build de producción incluye `leaflet.css` y no hay errores de CSP en la cons
 cargar una página de prueba con un tile de OpenStreetMap (verificable manualmente en Block 7, este
 bloque solo deja la infraestructura lista).
 
+**Nota (hallazgo de CODE, aprobado por el usuario):** el build de producción ya excedía su budget
+de bundle (`angular.json` → `configurations.production.budgets`) antes de este bloque — deuda
+preexistente ajena a Leaflet (5.20 kB sobre el límite de 1 MB en el `main` base). Para que el
+completion criterion ("build sin errores") se cumpla, se subió `maximumError` de 1MB a 1.1MB
+(suficiente para que el build no falle) y `maximumWarning` de 500kB a 600kB. **Medido tras el
+ajuste:** el bundle inicial real es de ~1.02 MB — el build ya no falla, pero el *warning* de budget
+sigue activo (excede los 600 kB por ~416 kB). El ajuste resuelve el error bloqueante, no la deuda de
+tamaño en sí; esa deuda —y si vale la pena subir el warning más, o reducir el bundle— queda fuera de
+alcance de este ticket, sin subestimar su magnitud real.
+
 ## Block 5 — Regenerar cliente NSwag
 
 **Files**
