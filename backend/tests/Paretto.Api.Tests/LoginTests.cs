@@ -70,7 +70,9 @@ public class LoginTests : IClassFixture<WebApplicationFactory<Program>>
         });
     }
 
-    private static async Task<(Guid UserId, string Username, string Password)> SeedUserAsync(WebApplicationFactory<Program> factory)
+    private static async Task<(Guid UserId, string Username, string Password)> SeedUserAsync(
+        WebApplicationFactory<Program> factory,
+        UserRole role = UserRole.Standard)
     {
         var suffix = Guid.NewGuid().ToString("N");
         var username = $"dilux-{suffix}";
@@ -85,7 +87,7 @@ public class LoginTests : IClassFixture<WebApplicationFactory<Program>>
             Username = username,
             Email = $"{username}@example.com",
             PasswordHash = hasher.Hash(password),
-            Role = UserRole.Standard,
+            Role = role,
         };
         db.Users.Add(user);
         await db.SaveChangesAsync();
@@ -112,6 +114,38 @@ public class LoginTests : IClassFixture<WebApplicationFactory<Program>>
 
         Assert.False(string.IsNullOrWhiteSpace(token));
         Assert.InRange(expiresAt, before.AddDays(7).AddMinutes(-1), before.AddDays(7).AddMinutes(1));
+    }
+
+    [Fact]
+    public async Task Login_with_a_Standard_user_returns_role_Standard_in_the_response()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString());
+        var (_, username, password) = await SeedUserAsync(factory, UserRole.Standard);
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { username, password });
+        var raw = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Expected 200, got {response.StatusCode}: {raw}");
+
+        var role = JsonDocument.Parse(raw).RootElement.GetProperty("role").GetString();
+        Assert.Equal(nameof(UserRole.Standard), role);
+    }
+
+    [Fact]
+    public async Task Login_with_an_Administrator_user_returns_role_Administrator_in_the_response()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString());
+        var (_, username, password) = await SeedUserAsync(factory, UserRole.Administrator);
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { username, password });
+        var raw = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Expected 200, got {response.StatusCode}: {raw}");
+
+        var role = JsonDocument.Parse(raw).RootElement.GetProperty("role").GetString();
+        Assert.Equal(nameof(UserRole.Administrator), role);
     }
 
     [Fact]
