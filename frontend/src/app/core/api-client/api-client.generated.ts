@@ -214,6 +214,91 @@ export class AuthClient {
 }
 
 @Injectable()
+export class DiscoveryClient {
+    private http: HttpClient;
+    private baseUrl: string;
+    protected jsonParseReviver: ((key: string, value: any) => any) | undefined = undefined;
+
+    constructor(@Inject(HttpClient) http: HttpClient, @Optional() @Inject(API_BASE_URL) baseUrl?: string) {
+        this.http = http;
+        this.baseUrl = baseUrl ?? "";
+    }
+
+    /**
+     * @param lat (optional) 
+     * @param lng (optional) 
+     * @param radiusKm (optional) 
+     * @return OK
+     */
+    getNearbyMurals(lat?: number | undefined, lng?: number | undefined, radiusKm?: number | undefined): Observable<GetNearbyMuralsResponse> {
+        let url_ = this.baseUrl + "/api/discovery/nearby-murals?";
+        if (lat === null)
+            throw new globalThis.Error("The parameter 'lat' cannot be null.");
+        else if (lat !== undefined)
+            url_ += "lat=" + encodeURIComponent("" + lat) + "&";
+        if (lng === null)
+            throw new globalThis.Error("The parameter 'lng' cannot be null.");
+        else if (lng !== undefined)
+            url_ += "lng=" + encodeURIComponent("" + lng) + "&";
+        if (radiusKm === null)
+            throw new globalThis.Error("The parameter 'radiusKm' cannot be null.");
+        else if (radiusKm !== undefined)
+            url_ += "radiusKm=" + encodeURIComponent("" + radiusKm) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processGetNearbyMurals(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processGetNearbyMurals(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<GetNearbyMuralsResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<GetNearbyMuralsResponse>;
+        }));
+    }
+
+    protected processGetNearbyMurals(response: HttpResponseBase): Observable<GetNearbyMuralsResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = GetNearbyMuralsResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ProblemDetails.fromJS(resultData400);
+            return throwException("Bad Request", status, _responseText, _headers, result400);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+}
+
+@Injectable()
 export class ModerationClient {
     private http: HttpClient;
     private baseUrl: string;
@@ -685,6 +770,50 @@ export interface ICreateMuralResponse {
     status?: string | undefined;
 }
 
+export class GetNearbyMuralsResponse implements IGetNearbyMuralsResponse {
+    items?: NearbyMuralItemResponse[] | undefined;
+
+    constructor(data?: IGetNearbyMuralsResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["items"])) {
+                this.items = [] as any;
+                for (let item of _data["items"])
+                    this.items!.push(NearbyMuralItemResponse.fromJS(item));
+            }
+        }
+    }
+
+    static fromJS(data: any): GetNearbyMuralsResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new GetNearbyMuralsResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.items)) {
+            data["items"] = [];
+            for (let item of this.items)
+                data["items"].push(item ? item.toJSON() : undefined as any);
+        }
+        return data;
+    }
+}
+
+export interface IGetNearbyMuralsResponse {
+    items?: NearbyMuralItemResponse[] | undefined;
+}
+
 export class GetPendingMuralsResponse implements IGetPendingMuralsResponse {
     murals?: MuralResponse[] | undefined;
     page?: number;
@@ -919,6 +1048,62 @@ export interface IMuralResponse {
     latitude?: number;
     longitude?: number;
     createdAt?: Date;
+}
+
+export class NearbyMuralItemResponse implements INearbyMuralItemResponse {
+    id?: string;
+    photoUrl?: string | undefined;
+    latitude?: number;
+    longitude?: number;
+    createdAt?: Date;
+    distanceKm?: number;
+
+    constructor(data?: INearbyMuralItemResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.id = _data["id"];
+            this.photoUrl = _data["photoUrl"];
+            this.latitude = _data["latitude"];
+            this.longitude = _data["longitude"];
+            this.createdAt = _data["createdAt"] ? new Date(_data["createdAt"].toString()) : undefined as any;
+            this.distanceKm = _data["distanceKm"];
+        }
+    }
+
+    static fromJS(data: any): NearbyMuralItemResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new NearbyMuralItemResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["id"] = this.id;
+        data["photoUrl"] = this.photoUrl;
+        data["latitude"] = this.latitude;
+        data["longitude"] = this.longitude;
+        data["createdAt"] = this.createdAt ? this.createdAt.toISOString() : undefined as any;
+        data["distanceKm"] = this.distanceKm;
+        return data;
+    }
+}
+
+export interface INearbyMuralItemResponse {
+    id?: string;
+    photoUrl?: string | undefined;
+    latitude?: number;
+    longitude?: number;
+    createdAt?: Date;
+    distanceKm?: number;
 }
 
 export class ProblemDetails implements IProblemDetails {
