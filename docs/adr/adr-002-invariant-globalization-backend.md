@@ -4,7 +4,7 @@
 |-------|-------|
 | Date | 2026-08-19 |
 | Ticket | FEAT-001b |
-| Status | Accepted |
+| Status | Superseded by ADR-004 |
 
 ## Context
 
@@ -62,3 +62,8 @@ todo endpoint, presente y futuro) supera claramente a la Opción B.
 - Limitación aceptada: si en el futuro el producto necesitara formateo/comparación
   culture-aware (p. ej. mostrar fechas en formato `es-AR`), habría que reintroducir `CultureInfo`
   explícito en ese punto puntual — el flag global no lo permite de forma ambiente.
+
+> **Superseded (2026-08-22, closeout de CODE de FEAT-001b):** `InvariantGlobalization=true` resultó
+> incompatible con `Microsoft.Data.SqlClient` (lanza `NotSupportedException` al abrir la conexión a
+> SQL Server), algo no detectado en la auditoría original porque no se corrió la suite completa
+> contra una instancia real de SQL Server hasta ese closeout. Ver ADR-004.

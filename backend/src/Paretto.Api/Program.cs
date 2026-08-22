@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Threading.RateLimiting;
 using FluentValidation;
 using MapsterMapper;
@@ -11,6 +12,19 @@ using Paretto.Infrastructure.Data;
 using Paretto.Infrastructure.Moderation;
 using Paretto.Infrastructure.Security;
 using Paretto.Infrastructure.Storage;
+
+// ADR-003 (supersedes ADR-002): fija la cultura por defecto del proceso a Invariant en vez de
+// deshabilitar la globalización entera (InvariantGlobalization=true). Ese flag resultó incompatible
+// con Microsoft.Data.SqlClient, que lanza NotSupportedException al abrir la conexión a SQL Server
+// bajo modo invariant — se descubrió en el closeout de CODE de FEAT-001b, corriendo la suite
+// completa contra una instancia real de SQL Server. Esto cubre el mismo caso que motivó ADR-002
+// (parseo de `double`/`decimal`/`DateTime` en cualquier endpoint, sin depender de LANG/LC_ALL del
+// SO) sin deshabilitar ICU: solo cambia la cultura por defecto de los threads nuevos, incluidos los
+// que ASP.NET Core usa para atender requests. Debe ejecutarse ANTES de `WebApplication.CreateBuilder`
+// para cubrir toda inicialización posterior, y como está en el código de nivel superior de `Program`,
+// también aplica dentro de `WebApplicationFactory<Program>` (los tests hostean este mismo Program).
+CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
 var builder = WebApplication.CreateBuilder(args);
 
