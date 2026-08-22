@@ -22,6 +22,14 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   de request (~11MB) además del límite de 10MB por foto; formulario Angular con reintento sin
   perder los datos ya ingresados; ruta `/murals/new` protegida por sesión. Ningún mural
   `Pending`/`Rejected` es visible para nadie que no sea su dueño (404 genérico anti-enumeración).
+- **FEAT-001c — Moderación mínima**: cierra el ciclo de vida del mural agregando el estado
+  `Published`. Un Administrador puede listar murales pendientes (paginado server-side), aprobarlos o
+  rechazarlos — los tres endpoints gateados con `[Authorize(Roles = "Administrator")]`, sin chequeo
+  de rol manual. Pantalla Angular `/moderation` (guard de administrador, listado con paginación
+  Anterior/Siguiente, aprobar/rechazar por ítem). El rol del usuario ahora viaja en la respuesta de
+  login, únicamente para gatear la UI — la autorización real siempre se re-verifica server-side.
+  Corrige además un `NullInjectorError` preexistente de FEAT-001b (`MuralsClient` nunca se había
+  registrado en el injector de Angular).
 
 ### Fixed
 
