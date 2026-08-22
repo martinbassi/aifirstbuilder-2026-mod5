@@ -30,6 +30,7 @@ language these instructions are written in.
 | Database | SQL Server 2025 (localhost) + EF Core |
 | Test runner | Vitest (frontend) · xUnit (backend) |
 | Linter / formatter | ESLint + Prettier |
+| Typecheck | `npx tsc --noEmit -p tsconfig.json` (frontend) |
 | Package manager | npm (frontend) · NuGet (backend) |
 
 ---

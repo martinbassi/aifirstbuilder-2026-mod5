@@ -1,12 +1,14 @@
 namespace Paretto.Domain.Enums;
 
 /// <summary>
-/// Deliberadamente sin `Published` — FEAT-001b (spec Block 1) nunca mueve un mural a publicado (ver
-/// "Out of Scope" del PRD); `Published` lo agrega FEAT-001c cuando implemente la aprobación. No es
-/// un enum incompleto, es el alcance de este ticket.
+/// `Published` fue agregado por FEAT-001c (spec Block 3) cuando implementó la aprobación admin —
+/// hasta entonces (FEAT-001b) ningún mural pasaba de `Pending`/`Rejected`. Sin migración EF Core: la
+/// columna `Status` se persiste como `int` plano, sin `HasConversion&lt;string&gt;` ni `CHECK
+/// constraint`.
 /// </summary>
 public enum MuralStatus
 {
     Pending = 0,
-    Rejected = 1
+    Rejected = 1,
+    Published = 2
 }

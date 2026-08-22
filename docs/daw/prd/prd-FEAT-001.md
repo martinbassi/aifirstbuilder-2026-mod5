@@ -12,8 +12,8 @@
 |---|---|---|---|---|
 | FEAT-001a | Autenticación básica | prd-FEAT-001a.md | none | done — mergeado a main (PR [#1](https://github.com/martinbassi/aifirstbuilder-2026-mod5/pull/1)) |
 | FEAT-001b | Crear mural | prd-FEAT-001b.md | depends on a | done — mergeado a main (PR [#2](https://github.com/martinbassi/aifirstbuilder-2026-mod5/pull/2)) |
-| FEAT-001c | Moderación mínima | prd-FEAT-001c.md | depends on a, b | active |
-| FEAT-001d | Descubrir murales cercanos | prd-FEAT-001d.md | depends on b, c | pending |
+| FEAT-001c | Moderación mínima | prd-FEAT-001c.md | depends on a, b | done — PR [#3](https://github.com/martinbassi/aifirstbuilder-2026-mod5/pull/3) creado (borrador), pendiente de merge por el usuario |
+| FEAT-001d | Descubrir murales cercanos | prd-FEAT-001d.md | depends on b, c | active |
 
 ## Suggested implementation order
 a → b → c → d

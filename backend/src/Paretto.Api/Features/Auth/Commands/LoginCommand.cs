@@ -30,6 +30,8 @@ public class LoginResponse
     public string Token { get; set; } = string.Empty;
 
     public DateTime ExpiresAt { get; set; }
+
+    public string Role { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -93,6 +95,6 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResponse>
 
         // RawToken is the only time the token exists in plaintext outside this request's memory —
         // only TokenHash was persisted (mitigation R2).
-        return new LoginResponse { Token = rawToken, ExpiresAt = expiresAt };
+        return new LoginResponse { Token = rawToken, ExpiresAt = expiresAt, Role = user.Role.ToString() };
     }
 }

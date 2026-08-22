@@ -4,7 +4,7 @@ import { Router, UrlTree, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { AuthClient } from './core/api-client/api-client.generated';
 import { SessionStore } from './features/auth/state/session.store';
-import { authGuard, routes } from './app.routes';
+import { adminGuard, authGuard, routes } from './app.routes';
 
 describe('authGuard', () => {
   let sessionStore: SessionStore;
@@ -43,6 +43,57 @@ describe('authGuard', () => {
     const result = runGuard();
 
     expect(result).toBe(true);
+  });
+});
+
+describe('adminGuard', () => {
+  let sessionStore: SessionStore;
+  let router: Router;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [SessionStore],
+    });
+
+    sessionStore = TestBed.inject(SessionStore);
+    router = TestBed.inject(Router);
+  });
+
+  afterEach(() => {
+    sessionStorage.clear();
+  });
+
+  function runGuard() {
+    return TestBed.runInInjectionContext(() =>
+      adminGuard({} as never, { url: '/moderation' } as never),
+    );
+  }
+
+  // Required test: adminGuard permite el acceso con role: 'Administrator'.
+  it('permite el acceso cuando el rol es Administrator', () => {
+    sessionStore.setSession('token-abc', { username: 'admin', role: 'Administrator' });
+
+    const result = runGuard();
+
+    expect(result).toBe(true);
+  });
+
+  // Required test: adminGuard redirige cuando role es 'Standard'.
+  it('redirige a / cuando el rol es Standard', () => {
+    sessionStore.setSession('token-abc', { username: 'ana', role: 'Standard' });
+
+    const result = runGuard();
+
+    expect(result).toBeInstanceOf(UrlTree);
+    expect(router.serializeUrl(result as UrlTree)).toBe('/');
+  });
+
+  // Required test: adminGuard redirige cuando no hay sesión.
+  it('redirige a /login cuando no hay sesión activa', () => {
+    const result = runGuard();
+
+    expect(result).toBeInstanceOf(UrlTree);
+    expect(router.serializeUrl(result as UrlTree)).toBe('/login');
   });
 });
 
