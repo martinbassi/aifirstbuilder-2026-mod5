@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { CreateMuralResponse } from '../../../core/api-client/api-client.generated';
+import { GeolocationService } from '../../../shared/geolocation.service';
 import { MuralService } from '../data/mural.service';
 import { CreateMuralFormComponent } from './create-mural-form.component';
 
@@ -23,53 +24,63 @@ function numberInputEvent(value: number): Event {
   return { target: input } as unknown as Event;
 }
 
+/**
+ * Stubs the injected `GeolocationService` mock (Block 6) instead of `navigator.geolocation`
+ * directly — the component no longer touches the browser API itself, it delegates to the
+ * service. `getCurrentPosition()` now returns a `Promise`, so callers awaiting a resolved/rejected
+ * test must flush a microtask (see `flushGeolocation` below) before asserting on the result.
+ */
 function stubGeolocation(
+  geolocationService: { getCurrentPosition: ReturnType<typeof vi.fn> },
   behavior: 'success' | 'denied' | 'unsupported',
   position?: { latitude: number; longitude: number },
 ): void {
-  if (behavior === 'unsupported') {
-    Object.defineProperty(navigator, 'geolocation', { value: undefined, configurable: true });
+  if (behavior === 'success') {
+    geolocationService.getCurrentPosition.mockReturnValue(
+      Promise.resolve({
+        latitude: position?.latitude ?? -34.6,
+        longitude: position?.longitude ?? -58.4,
+      }),
+    );
     return;
   }
 
-  Object.defineProperty(navigator, 'geolocation', {
-    configurable: true,
-    value: {
-      getCurrentPosition: (success: PositionCallback, error?: PositionErrorCallback) => {
-        if (behavior === 'success') {
-          success({
-            coords: {
-              latitude: position?.latitude ?? -34.6,
-              longitude: position?.longitude ?? -58.4,
-            },
-          } as GeolocationPosition);
-        } else if (error) {
-          error({ code: 1, message: 'User denied Geolocation' } as GeolocationPositionError);
-        }
-      },
-    },
-  });
+  // 'denied' and 'unsupported' both surface to the component as a rejection — which of the 3
+  // typed `GeolocationError.kind` values it actually is does not matter to this component: it
+  // reacts identically to any of them (falls back to manual input). `GeolocationService`'s own
+  // spec is what verifies each `kind` is produced correctly.
+  geolocationService.getCurrentPosition.mockReturnValue(
+    Promise.reject({ kind: behavior === 'denied' ? 'denied' : 'unavailable' }),
+  );
+}
+
+/** Flushes the microtask queue so the `GeolocationService.getCurrentPosition()` promise settles,
+ * then re-runs change detection so the resulting signal updates reach the DOM. */
+async function flushGeolocation(fixture: { detectChanges: () => void }): Promise<void> {
+  await Promise.resolve();
+  fixture.detectChanges();
 }
 
 describe('CreateMuralFormComponent', () => {
   let muralService: { create: ReturnType<typeof vi.fn> };
+  let geolocationService: { getCurrentPosition: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     muralService = { create: vi.fn() };
+    geolocationService = { getCurrentPosition: vi.fn() };
 
     TestBed.configureTestingModule({
       imports: [CreateMuralFormComponent],
-      providers: [{ provide: MuralService, useValue: muralService }],
+      providers: [
+        { provide: MuralService, useValue: muralService },
+        { provide: GeolocationService, useValue: geolocationService },
+      ],
     });
-  });
-
-  afterEach(() => {
-    Object.defineProperty(navigator, 'geolocation', { value: undefined, configurable: true });
   });
 
   // Required test 1: archivo oversized → error inline, "Guardar" deshabilitado (AC-02).
   it('rechaza un archivo oversized con error inline y deshabilita Guardar', () => {
-    stubGeolocation('success');
+    stubGeolocation(geolocationService, 'success');
     const fixture = TestBed.createComponent(CreateMuralFormComponent);
     const component = fixture.componentInstance;
     fixture.detectChanges();
@@ -94,7 +105,7 @@ describe('CreateMuralFormComponent', () => {
 
   // Required test 2: archivo no-imagen → error inline, "Guardar" deshabilitado (AC-01, camino inverso).
   it('rechaza un archivo no-imagen con error inline y deshabilita Guardar', () => {
-    stubGeolocation('success');
+    stubGeolocation(geolocationService, 'success');
     const fixture = TestBed.createComponent(CreateMuralFormComponent);
     const component = fixture.componentInstance;
     fixture.detectChanges();
@@ -113,12 +124,13 @@ describe('CreateMuralFormComponent', () => {
   });
 
   // Required test 3: geolocalización exitosa → lat/lng se completan solos (AC-03).
-  it('completa latitud y longitud automáticamente cuando la geolocalización tiene éxito', () => {
-    stubGeolocation('success', { latitude: -34.6037, longitude: -58.3816 });
+  it('completa latitud y longitud automáticamente cuando la geolocalización tiene éxito', async () => {
+    stubGeolocation(geolocationService, 'success', { latitude: -34.6037, longitude: -58.3816 });
 
     const fixture = TestBed.createComponent(CreateMuralFormComponent);
     const component = fixture.componentInstance;
     fixture.detectChanges();
+    await flushGeolocation(fixture);
 
     expect(component.latitude()).toBe(-34.6037);
     expect(component.longitude()).toBe(-58.3816);
@@ -128,12 +140,13 @@ describe('CreateMuralFormComponent', () => {
   });
 
   // Required test 4: geolocalización denegada → aparecen inputs manuales, formulario sigue usable (AC-04).
-  it('revela inputs manuales cuando la geolocalización es denegada, sin bloquear el formulario', () => {
-    stubGeolocation('denied');
+  it('revela inputs manuales cuando la geolocalización es denegada, sin bloquear el formulario', async () => {
+    stubGeolocation(geolocationService, 'denied');
 
     const fixture = TestBed.createComponent(CreateMuralFormComponent);
     const component = fixture.componentInstance;
     fixture.detectChanges();
+    await flushGeolocation(fixture);
 
     expect(component.manualLocationRequired()).toBe(true);
     const latitudeInput = fixture.nativeElement.querySelector('[data-testid="latitude-input"]');
@@ -147,12 +160,13 @@ describe('CreateMuralFormComponent', () => {
   });
 
   // Required test 5: ingreso manual válido → "Guardar" habilitado (AC-05).
-  it('habilita Guardar cuando el ingreso manual de coordenadas es válido junto con una foto válida', () => {
-    stubGeolocation('unsupported');
+  it('habilita Guardar cuando el ingreso manual de coordenadas es válido junto con una foto válida', async () => {
+    stubGeolocation(geolocationService, 'unsupported');
 
     const fixture = TestBed.createComponent(CreateMuralFormComponent);
     const component = fixture.componentInstance;
     fixture.detectChanges();
+    await flushGeolocation(fixture);
 
     expect(component.canSubmit()).toBe(false);
 
@@ -170,8 +184,8 @@ describe('CreateMuralFormComponent', () => {
   });
 
   // Required test 6: envío exitoso → mensaje de confirmación visible (AC-12).
-  it('muestra el mensaje de confirmación tras un envío exitoso', () => {
-    stubGeolocation('success', { latitude: -34.6, longitude: -58.4 });
+  it('muestra el mensaje de confirmación tras un envío exitoso', async () => {
+    stubGeolocation(geolocationService, 'success', { latitude: -34.6, longitude: -58.4 });
     muralService.create.mockReturnValue(
       of(new CreateMuralResponse({ id: 'mural-1', status: 'Pending' })),
     );
@@ -179,6 +193,7 @@ describe('CreateMuralFormComponent', () => {
     const fixture = TestBed.createComponent(CreateMuralFormComponent);
     const component = fixture.componentInstance;
     fixture.detectChanges();
+    await flushGeolocation(fixture);
 
     const validFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
     component.onFileSelected(fileChangeEvent(validFile));
@@ -196,8 +211,8 @@ describe('CreateMuralFormComponent', () => {
 
   // Required test 7: envío fallido → foto y ubicación se conservan, "Reintentar" vuelve a enviar
   // sin pedir datos de nuevo (AC-11).
-  it('conserva foto y ubicación tras un envío fallido y reintenta sin pedir datos de nuevo', () => {
-    stubGeolocation('success', { latitude: -34.6, longitude: -58.4 });
+  it('conserva foto y ubicación tras un envío fallido y reintenta sin pedir datos de nuevo', async () => {
+    stubGeolocation(geolocationService, 'success', { latitude: -34.6, longitude: -58.4 });
     muralService.create
       .mockReturnValueOnce(throwError(() => ({ status: 500, message: 'No se pudo guardar el mural. Intentá nuevamente.' })))
       .mockReturnValueOnce(of(new CreateMuralResponse({ id: 'mural-1', status: 'Pending' })));
@@ -205,6 +220,7 @@ describe('CreateMuralFormComponent', () => {
     const fixture = TestBed.createComponent(CreateMuralFormComponent);
     const component = fixture.componentInstance;
     fixture.detectChanges();
+    await flushGeolocation(fixture);
 
     const validFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
     component.onFileSelected(fileChangeEvent(validFile));

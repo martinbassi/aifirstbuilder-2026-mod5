@@ -4,6 +4,7 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { ApiError } from '../../../core/http/api-error';
+import { GeolocationService } from '../../../shared/geolocation.service';
 import { CreateMuralRequest, MuralService } from '../data/mural.service';
 
 /** Same allowlist the backend accepts (Block 4) — this check is UX-only feedback, never the
@@ -31,6 +32,7 @@ const MAX_LONGITUDE = 180;
 })
 export class CreateMuralFormComponent implements OnInit {
   private readonly muralService = inject(MuralService);
+  private readonly geolocationService = inject(GeolocationService);
 
   readonly selectedFile = signal<File | null>(null);
   /** UX-only inline feedback for the file selector — see `ALLOWED_PHOTO_TYPES` above. */
@@ -135,22 +137,17 @@ export class CreateMuralFormComponent implements OnInit {
     this.submit();
   }
 
+  /** Delegates to `GeolocationService` (Block 6). On any of its 3 typed error cases, falls back
+   * to the same manual lat/lng input already offered before this extraction (FR-06/AC-04). */
   private requestGeolocation(): void {
-    const geolocation = navigator.geolocation;
-    if (!geolocation) {
-      this.manualLocationRequired.set(true);
-      return;
-    }
-
-    geolocation.getCurrentPosition(
-      (position: GeolocationPosition) => {
-        this.latitude.set(position.coords.latitude);
-        this.longitude.set(position.coords.longitude);
+    this.geolocationService.getCurrentPosition().then(
+      (coordinates) => {
+        this.latitude.set(coordinates.latitude);
+        this.longitude.set(coordinates.longitude);
       },
       () => {
         this.manualLocationRequired.set(true);
       },
-      { enableHighAccuracy: true },
     );
   }
 
