@@ -1,25 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
 import {
-  ApiException,
   AuthClient,
   LoginCommand,
   RegisterUserCommand,
   RegisterUserResponse,
 } from '../../../core/api-client/api-client.generated';
+import { toApiError } from '../../../core/http/api-error';
 import { SessionStore } from '../state/session.store';
-
-/**
- * Typed error surfaced by this service to its callers (components). It is always the result of
- * translating whatever the generated client threw — network failures included — never swallowed.
- */
-export interface ApiError {
-  /** HTTP status code, or `0` for a request that never reached the server (network/CORS failure). */
-  status: number;
-  /** Message ready to show to the user as-is — already the backend's own generic message when one
-   * exists (FR-02/FR-05: same text regardless of which field caused the failure). */
-  message: string;
-}
 
 export interface RegisterRequest {
   username: string;
@@ -31,9 +19,6 @@ export interface LoginRequest {
   username: string;
   password: string;
 }
-
-const GENERIC_NETWORK_ERROR_MESSAGE = 'No se pudo conectar con el servidor. Intentá nuevamente.';
-const GENERIC_UNEXPECTED_ERROR_MESSAGE = 'Ocurrió un error inesperado. Intentá nuevamente.';
 
 /**
  * Wraps `AuthClient` (NSwag-generated, see api-client.generated.ts) for the `auth` feature.
@@ -94,37 +79,4 @@ export class AuthService {
       }),
     );
   }
-}
-
-function toApiError(error: unknown): ApiError {
-  if (error instanceof ApiException) {
-    return { status: error.status, message: extractMessage(error) };
-  }
-  if (isApiError(error)) {
-    return error;
-  }
-  return { status: 0, message: GENERIC_NETWORK_ERROR_MESSAGE };
-}
-
-function isApiError(error: unknown): error is ApiError {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'status' in error &&
-    'message' in error &&
-    typeof (error as ApiError).status === 'number' &&
-    typeof (error as ApiError).message === 'string'
-  );
-}
-
-function extractMessage(error: ApiException): string {
-  try {
-    const body = JSON.parse(error.response) as { title?: string };
-    if (body?.title) {
-      return body.title;
-    }
-  } catch {
-    // error.response was not parseable JSON — fall through to the generic message below.
-  }
-  return GENERIC_UNEXPECTED_ERROR_MESSAGE;
 }

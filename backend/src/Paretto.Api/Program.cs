@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Threading.RateLimiting;
 using FluentValidation;
 using MapsterMapper;
@@ -8,7 +9,22 @@ using Paretto.Api.Common.Behaviors;
 using Paretto.Api.Common.Middleware;
 using Paretto.Infrastructure.Auth;
 using Paretto.Infrastructure.Data;
+using Paretto.Infrastructure.Moderation;
 using Paretto.Infrastructure.Security;
+using Paretto.Infrastructure.Storage;
+
+// ADR-003 (supersedes ADR-002): fija la cultura por defecto del proceso a Invariant en vez de
+// deshabilitar la globalización entera (InvariantGlobalization=true). Ese flag resultó incompatible
+// con Microsoft.Data.SqlClient, que lanza NotSupportedException al abrir la conexión a SQL Server
+// bajo modo invariant — se descubrió en el closeout de CODE de FEAT-001b, corriendo la suite
+// completa contra una instancia real de SQL Server. Esto cubre el mismo caso que motivó ADR-002
+// (parseo de `double`/`decimal`/`DateTime` en cualquier endpoint, sin depender de LANG/LC_ALL del
+// SO) sin deshabilitar ICU: solo cambia la cultura por defecto de los threads nuevos, incluidos los
+// que ASP.NET Core usa para atender requests. Debe ejecutarse ANTES de `WebApplication.CreateBuilder`
+// para cubrir toda inicialización posterior, y como está en el código de nivel superior de `Program`,
+// también aplica dentro de `WebApplicationFactory<Program>` (los tests hostean este mismo Program).
+CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,6 +65,22 @@ builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 // needs the container to resolve it — Block 4 created the service but did not register it, exactly
 // the same situation Block 5 documented above for IPasswordHasher.
 builder.Services.AddScoped<ISessionTokenGenerator, SessionTokenGenerator>();
+
+// Block 2 (FEAT-001b) creates IBlobStorageService/AzureBlobStorageService but has no consumer yet —
+// its first real consumer is CreateMuralCommandHandler in Block 4 (FEAT-001b), not implemented at
+// the time this registration is added. Same situation already documented above for
+// IPasswordHasher/ISessionTokenGenerator: register now so the container can resolve it once that
+// Handler exists, rather than leaving a registration gap for that later block to remember.
+builder.Services.AddScoped<IBlobStorageService, AzureBlobStorageService>();
+
+// Block 3 (FEAT-001b): NsfwSpyContentScanner needs its own INsfwClassifier abstraction over the
+// underlying NsfwSpy model — no per-request state in either type (NsfwSpy caches its ML.NET model
+// in a static field internally), so Scoped here mirrors the same lifetime already used above for
+// IBlobStorageService/IPasswordHasher, not a hard requirement of either type. First real consumer
+// is CreateMuralCommandHandler in Block 4 (FEAT-001b), not implemented at the time this
+// registration is added — same situation already documented above for IBlobStorageService.
+builder.Services.AddScoped<INsfwClassifier, NsfwSpyClassifier>();
+builder.Services.AddScoped<INsfwContentScanner, NsfwSpyContentScanner>();
 
 // Block 7 (LogoutCommandHandler) needs IHttpContextAccessor to read the raw token off the current
 // request's Authorization header. Contrary to a common misconception, ASP.NET Core does NOT

@@ -13,7 +13,7 @@
     "openApiToTypeScriptClient": {
       "template": "Angular",
       "className": "{controller}Client",
-      "operationGenerationMode": "MultipleClientsFromPathSegments",
+      "operationGenerationMode": "MultipleClientsFromFirstTagAndOperationId",
       "exceptionClass": "ApiException",
       "output": "../../../frontend/src/app/core/api-client/api-client.generated.ts",
       "typeScriptVersion": 5.9,

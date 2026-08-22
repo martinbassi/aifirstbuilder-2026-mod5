@@ -11,7 +11,8 @@ import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
-import { ApiError, AuthService } from '../data/auth.service';
+import { ApiError } from '../../../core/http/api-error';
+import { AuthService } from '../data/auth.service';
 
 interface RegisterFormControls {
   username: FormControl<string>;
