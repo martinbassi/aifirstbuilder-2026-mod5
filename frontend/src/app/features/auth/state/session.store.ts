@@ -15,6 +15,14 @@ const TOKEN_STORAGE_KEY = 'paretto.session.token';
 export interface SessionUser {
   id?: string;
   username: string;
+  /**
+   * `role` is optional for the same reason `id` is: the two endpoints that populate this store
+   * carry different information.
+   * - `POST /api/auth/register` returns `{ id, username }` (Block 5) — no `role`.
+   * - `POST /api/auth/login` returns `{ token, expiresAt, role }` (Block 6, `role` added in
+   *   FEAT-001c Block 1) — `AuthService.login()` propagates it as-is from the response.
+   */
+  role?: string;
 }
 
 /**

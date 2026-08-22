@@ -54,14 +54,29 @@ describe('AuthService', () => {
     const response = new LoginResponse({
       token: 'raw-token-123',
       expiresAt: new Date('2026-08-30T00:00:00Z'),
+      role: 'Standard',
     });
     authClient.login.mockReturnValue(of(response));
 
     service.login({ username: 'ana', password: 'Passw0rd' }).subscribe();
 
     expect(sessionStore.token()).toBe('raw-token-123');
-    expect(sessionStore.user()).toEqual({ username: 'ana' });
+    expect(sessionStore.user()).toEqual({ username: 'ana', role: 'Standard' });
     expect(sessionStore.isAuthenticated()).toBe(true);
+  });
+
+  // Required test (Block 5): sessionStore.user()?.role refleja el valor devuelto por el backend.
+  it('login() exitoso propaga el role devuelto por el backend a session.store', () => {
+    const response = new LoginResponse({
+      token: 'raw-token-456',
+      expiresAt: new Date('2026-08-30T00:00:00Z'),
+      role: 'Administrator',
+    });
+    authClient.login.mockReturnValue(of(response));
+
+    service.login({ username: 'ana', password: 'Passw0rd' }).subscribe();
+
+    expect(sessionStore.user()?.role).toBe('Administrator');
   });
 
   // Required test 2: un error del cliente generado se propaga como ApiError, no se swallowea.

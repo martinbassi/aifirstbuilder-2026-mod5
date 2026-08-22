@@ -57,7 +57,10 @@ export class AuthService {
         if (!response.token) {
           throw toApiError(new Error('The server response did not include a session token.'));
         }
-        this.sessionStore.setSession(response.token, { username: request.username });
+        this.sessionStore.setSession(response.token, {
+          username: request.username,
+          role: response.role,
+        });
       }),
       catchError((error: unknown) => throwError(() => toApiError(error))),
     );
