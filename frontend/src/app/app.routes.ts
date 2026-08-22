@@ -29,4 +29,12 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/auth/ui/register-form.component').then((m) => m.RegisterFormComponent),
   },
+  {
+    path: 'murals/new',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/murals/ui/create-mural-form.component').then(
+        (m) => m.CreateMuralFormComponent,
+      ),
+  },
 ];
