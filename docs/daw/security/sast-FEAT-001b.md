@@ -9,6 +9,17 @@
 
 ## Result: PASSED
 
+## Addendum — re-scan tras corrective loop VERIFY→CODE
+
+Cambios: `MuralsController.cs` (agrega `[RequestFormLimits(MultipartBodyLengthLimit = 11MB)]` —
+mitigación R2 del threat model, cierra F-VER-02) y `CreateMuralTests.cs` (tests nuevos, sin código
+de producción). Revisado contra las mismas 20 categorías: sin secretos nuevos, sin lógica de
+negocio en el controller, el atributo es en sí mismo un control de seguridad (límite de tamaño de
+request), no una superficie nueva de ataque. `dotnet build` — 0 warnings, 0 errores.
+`dotnet list package --vulnerable` — sin cambios respecto al reporte original (0 Critical/High).
+
+**Result: PASSED**
+
 ## Secrets (F-SAST-01)
 - ✅ Sin credenciales/API keys hardcodeadas. `appsettings.json`/`appsettings.Development.json` usan
   `Trusted_Connection=True` (auth integrada, sin password embebido) y `UseDevelopmentStorage=true`
