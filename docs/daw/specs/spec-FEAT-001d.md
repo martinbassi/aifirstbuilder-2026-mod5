@@ -217,10 +217,9 @@ Todos los tests del Handler pasan contra EF Core InMemory + `FakeBlobStorageServ
 [Route("api/discovery")]
 public class DiscoveryController : ControllerBase
 {
-    [HttpGet("nearby-murals")]
+    [HttpGet("nearby-murals", Name = "GetNearbyMurals")]
     [AllowAnonymous]
     [EnableRateLimiting("discovery")]
-    [SwaggerOperation(OperationId = "GetNearbyMurals")]
     [ProducesResponseType(typeof(GetNearbyMuralsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> NearbyMurals(
@@ -233,11 +232,17 @@ public class DiscoveryController : ControllerBase
 Contrato de request/response: el mismo ya fijado en el "API contract" de Block 2 — este bloque solo
 lo expone vía HTTP, no lo redefine.
 
-`OperationId = "GetNearbyMurals"` explícito (vía `[SwaggerOperation]`) es obligatorio, no opcional:
-con `operationGenerationMode: MultipleClientsFromFirstTagAndOperationId` (ADR-003), un controller
-nuevo sin `OperationId` explícito produce nombres poco semánticos en el cliente NSwag generado
-(mismo problema que motivó ADR-003 para `MuralsController`). Con el atributo, NSwag genera
-`DiscoveryClient.getNearbyMurals(...)` en `api-client.generated.ts` (Block 5).
+`Name = "GetNearbyMurals"` explícito (propiedad nativa de `HttpMethodAttribute`, sin dependencias
+nuevas) es obligatorio, no opcional: con `operationGenerationMode:
+MultipleClientsFromFirstTagAndOperationId` (ADR-003), un controller nuevo sin `OperationId`
+explícito produce nombres poco semánticos en el cliente NSwag generado (mismo problema que motivó
+ADR-003 para `MuralsController`). `Swashbuckle.AspNetCore` (ya instalado, sin paquete adicional)
+promueve `AttributeRouteInfo.Name` a `operationId` en el OpenAPI generado automáticamente — **no
+requiere** `Swashbuckle.AspNetCore.Annotations`/`[SwaggerOperation]`: esa vía fue evaluada durante
+CODE y descartada por agregar una dependencia NuGet no justificada, cuando el stack ya instalado
+cubre la misma necesidad (verificado empíricamente: mismo `operationId` resultante en
+`swagger.json`). Con `Name`, NSwag genera `DiscoveryClient.getNearbyMurals(...)` en
+`api-client.generated.ts` (Block 5).
 
 **Mitigación R3 del threat model (`docs/daw/security/threat-FEAT-001d.md`):**
 
