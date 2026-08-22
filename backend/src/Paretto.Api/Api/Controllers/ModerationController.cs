@@ -66,4 +66,21 @@ public class ModerationController : ControllerBase
         var response = await _mediator.Send(new ApproveMuralCommand { MuralId = id }, cancellationToken);
         return Ok(response);
     }
+
+    /// <summary>
+    /// Rejects a Pending mural, moving it to Rejected (FR-03/AC-05/AC-06). `404` if the mural does
+    /// not exist (`ModeratedMuralNotFoundException`); `409` if it exists but is not `Pending`
+    /// (`MuralNotPendingException`) — already `Published` or `Rejected`.
+    /// </summary>
+    [HttpPost("{id:guid}/reject")]
+    [ProducesResponseType(typeof(ModerationActionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Reject(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await _mediator.Send(new RejectMuralCommand { MuralId = id }, cancellationToken);
+        return Ok(response);
+    }
 }
