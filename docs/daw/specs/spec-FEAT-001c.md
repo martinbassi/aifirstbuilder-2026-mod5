@@ -122,8 +122,13 @@ nuevo).
 - Response: `GetPendingMuralsResponse { Murals: MuralResponse[], Page: int, PageSize: int,
   TotalCount: int }` — `TotalCount` le permite al frontend calcular si hay página siguiente sin un
   segundo request.
-- Error codes: `401` (sin sesión), `403` (sesión sin rol Administrator), `400` (`page` < 1 o
-  `pageSize` fuera de `1..50`, FluentValidation)
+- Error codes: `401` (sin sesión), `403` (sesión sin rol Administrator), `422` (`page` < 1 o
+  `pageSize` fuera de `1..50`, FluentValidation — corregido en CODE: el pipeline compartido
+  `ValidationBehavior`/`ExceptionHandlingMiddleware` devuelve 422 para toda falla de
+  FluentValidation, no 400; mismo código que ya usa `CreateMuralCommandValidator`. El spec original
+  decía 400 por error de quien lo escribió, sin verificar el comportamiento real del pipeline
+  compartido — corrección aplicada aquí tras detectarlo el implementador vía TDD contra el código
+  real)
 - Auth: `[Authorize(Roles = "Administrator")]`
 
 **Input validation**
@@ -134,7 +139,7 @@ la paginación existe para resolver).
 
 **Error handling**
 Sin excepciones de dominio nuevas en este bloque — 401/403 los produce el pipeline de autorización
-de ASP.NET Core antes de llegar al Handler; 400 lo produce `ValidationBehavior` (pipeline de
+de ASP.NET Core antes de llegar al Handler; 422 lo produce `ValidationBehavior` (pipeline de
 FluentValidation ya existente) ante un `page`/`pageSize` fuera de rango.
 
 **Required tests**
@@ -142,13 +147,13 @@ FluentValidation ya existente) ante un `page`/`pageSize` fuera de rango.
   ordenados por `CreatedAt` ascendente, cada uno con `photoUrl` (AC-01).
 - [ ] Sin `page`/`pageSize`, aplica el default (`page=1`, `pageSize=20`) y devuelve `TotalCount`.
 - [ ] Con más pendientes que `pageSize`, pedir `page=2` devuelve el resto (sin solapar con `page=1`).
-- [ ] `page=0` o `pageSize=51` (fuera de `1..50`) devuelve 400 (sad path).
+- [ ] `page=0` o `pageSize=51` (fuera de `1..50`) devuelve 422 (sad path).
 - [ ] Un usuario `Standard` autenticado recibe 403 (AC-02, sad path).
 - [ ] Una request sin sesión recibe 401 (sad path).
 
 **Completion criterion**
 `GetPendingMuralsTests.cs` pasa; `GET /api/moderation/murals/pending` devuelve 200 con la página
-pedida y `TotalCount` para un admin, 400 con `page`/`pageSize` inválidos, 403 para un no-admin
+pedida y `TotalCount` para un admin, 422 con `page`/`pageSize` inválidos, 403 para un no-admin
 autenticado, 401 sin sesión.
 
 ## Block 3 — Aprobar mural (admin)
