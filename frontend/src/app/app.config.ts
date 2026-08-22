@@ -13,7 +13,12 @@ import {
 } from '@ant-design/icons-angular/icons';
 import { registerLocaleData } from '@angular/common';
 import en from '@angular/common/locales/en';
-import { API_BASE_URL, AuthClient } from './core/api-client/api-client.generated';
+import {
+  API_BASE_URL,
+  AuthClient,
+  ModerationClient,
+  MuralsClient,
+} from './core/api-client/api-client.generated';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 
 registerLocaleData(en);
@@ -28,6 +33,11 @@ export const appConfig: ApplicationConfig = {
     // futuro ticket que agregue configuración por entorno real (staging/producción).
     { provide: API_BASE_URL, useValue: 'https://localhost:7126' },
     AuthClient,
+    ModerationClient,
+    // Pre-existing gap fixed here (FEAT-001c Block 6, spec-flagged): MuralsClient was used by
+    // MuralService but never registered here, causing a NullInjectorError in production — masked
+    // in tests because mural.service.spec.ts provides MuralsClient manually.
+    MuralsClient,
     provideNzI18n(en_US),
     // Íconos usados por nz-alert (mensajes de error de los formularios de auth, Block 8).
     provideNzIcons([

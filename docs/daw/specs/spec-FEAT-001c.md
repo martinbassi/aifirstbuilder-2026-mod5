@@ -51,7 +51,10 @@ Block 2 (listar pendientes) ──┬──> Block 3 (aprobar) ─┼──> Blo
 - Block 5 depende de Block 1 (necesita `Role` en la respuesta de login para propagarlo al store).
 - Block 6 depende de Block 5 (el guard de admin lee el rol de la sesión) y de Block 2/3/4 (el
   servicio llama a los tres endpoints).
-- Block 7 depende de Block 6.
+- Block 7 depende de Block 6 (usa `adminGuard`/`ModerationService`) — **y agrega la ruta
+  `moderation` en `app.routes.ts`**, movida desde Block 6 (ver nota de corrección en Block 6): un
+  `loadComponent` resuelve en build time, así que la ruta no puede existir antes de que este bloque
+  cree el componente al que apunta.
 
 ## Fuera de alcance de este spec (gap de split documentado)
 
@@ -272,9 +275,21 @@ Sin cambios — mismo flujo de error ya existente en `login()`.
 
 ## Block 6 — Guard de administrador + servicio de moderación
 
+> **Corrección aplicada en CODE:** el spec original pedía agregar en este bloque la ruta
+> `moderation` con `loadComponent` apuntando a `pending-murals-list.component` (Block 7, todavía sin
+> crear). Es un error mío al escribirlo: asumí que un `loadComponent` con import dinámico solo
+> falla en runtime, al navegar — pero el builder de Angular (`@angular/build`, esbuild + chequeo de
+> tipos del compilador) resuelve todos los `loadComponent` estáticamente en build time. Con la ruta
+> agregada antes de que el componente exista, `ng test` (sin filtro, o con cualquier `--include` que
+> toque `app.routes.ts`) falla al bundlear la app entera — no solo los tests de este bloque, también
+> los de los Blocks 1–5 ya aprobados. El implementador de CODE lo detectó, no lo parchó por su
+> cuenta (ni creó un componente placeholder ni omitió la ruta sin avisar) y escaló la
+> contradicción. Corrección: **la línea de ruta se mueve al Block 7**, junto con la creación del
+> componente al que apunta — este bloque agrega el guard y el servicio, sin tocar la ruta.
+
 **Files**
 - `frontend/src/app/app.routes.ts` (modified) — nuevo `adminGuard` (junto al `authGuard`
-  existente), nueva ruta `moderation` con `canActivate: [authGuard, adminGuard]`.
+  existente). La ruta `moderation` se agrega en Block 7, no acá.
 - `frontend/src/app/app.routes.spec.ts` (modified) — agrega `describe('adminGuard', ...)` junto al
   `describe('authGuard', ...)` ya existente (líneas 9–47).
 - `frontend/src/app/app.config.ts` (modified) — registra `ModerationClient` en `providers`, mismo
@@ -319,7 +334,9 @@ tal cual los expone `GetPendingMuralsResponse`.
 
 **Completion criterion**
 `app.routes.spec.ts` y `moderation.service.spec.ts` pasan; `ModerationClient` y `MuralsClient`
-quedan registrados en `app.config.ts`.
+quedan registrados en `app.config.ts`. `adminGuard` existe y está exportado, pero **ninguna ruta lo
+usa todavía** — se conecta en Block 7, junto con el componente que la ruta necesita para poder
+resolver en build time.
 
 ## Block 7 — Pantalla de moderación
 
@@ -329,6 +346,10 @@ quedan registrados en `app.config.ts`.
   de botones aprobar/rechazar por ítem.
 - `frontend/src/app/features/moderation/ui/pending-murals-list.component.html` (new).
 - `frontend/src/app/features/moderation/ui/pending-murals-list.component.spec.ts` (new).
+- `frontend/src/app/app.routes.ts` (modified) — **movido desde Block 6** (ver nota de corrección
+  arriba): agrega la ruta `moderation` con `canActivate: [authGuard, adminGuard]`, apuntando via
+  `loadComponent` a este componente — recién acá el import dinámico resuelve, porque el archivo ya
+  existe en este mismo bloque.
 
 **Logic**
 Al inicializar, llama a `ModerationService.getPending(page)` (`pageSize` fijo en el default del
@@ -359,8 +380,9 @@ sacarlo silenciosamente.
 - [ ] Click en "Siguiente" pide `page + 1` al servicio y reemplaza la lista mostrada.
 
 **Completion criterion**
-`pending-murals-list.component.spec.ts` pasa; la ruta `/moderation` (Block 6) renderiza el
-componente para una sesión con rol Administrator.
+`pending-murals-list.component.spec.ts` pasa; `ng test`/`ng build` completos compilan sin error
+(la ruta `moderation`, agregada en este bloque, ya resuelve porque el componente existe); la ruta
+`/moderation` renderiza el componente para una sesión con rol Administrator.
 
 ## Final verification
 
