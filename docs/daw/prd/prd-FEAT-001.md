@@ -10,9 +10,9 @@
 
 | Sub-ticket | Title | PRD | Dependencies | Status |
 |---|---|---|---|---|
-| FEAT-001a | Autenticación básica | prd-FEAT-001a.md | none | done — PR [#1](https://github.com/martinbassi/aifirstbuilder-2026-mod5/pull/1), pendiente de merge por el usuario |
-| FEAT-001b | Crear mural | prd-FEAT-001b.md | depends on a | active |
-| FEAT-001c | Moderación mínima | prd-FEAT-001c.md | depends on a, b | pending |
+| FEAT-001a | Autenticación básica | prd-FEAT-001a.md | none | done — mergeado a main (PR [#1](https://github.com/martinbassi/aifirstbuilder-2026-mod5/pull/1)) |
+| FEAT-001b | Crear mural | prd-FEAT-001b.md | depends on a | done — mergeado a main (PR [#2](https://github.com/martinbassi/aifirstbuilder-2026-mod5/pull/2)) |
+| FEAT-001c | Moderación mínima | prd-FEAT-001c.md | depends on a, b | active |
 | FEAT-001d | Descubrir murales cercanos | prd-FEAT-001d.md | depends on b, c | pending |
 
 ## Suggested implementation order
