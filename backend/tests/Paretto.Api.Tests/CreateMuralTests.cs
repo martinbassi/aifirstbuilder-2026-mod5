@@ -178,9 +178,28 @@ public class CreateMuralTests : IClassFixture<WebApplicationFactory<Program>>
     // JPEG magic bytes: FF D8 FF, padded to a plausible small body.
     private static byte[] ValidJpegBytes() => [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x02, 0x03];
 
+    // PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A, padded to a plausible small body.
+    private static byte[] ValidPngBytes() => [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x01, 0x02, 0x03];
+
+    // WebP: "RIFF" + 4-byte size (arbitrary for this test) + "WEBP", per `CreateMuralCommandValidator.IsWebP`.
+    private static byte[] ValidWebPBytes() =>
+        [.. "RIFF"u8.ToArray(), 0x00, 0x00, 0x00, 0x00, .. "WEBP"u8.ToArray(), 0x00, 0x01, 0x02, 0x03];
+
     private static byte[] OversizedJpegBytes()
     {
         var bytes = new byte[10 * 1024 * 1024 + 1];
+        bytes[0] = 0xFF;
+        bytes[1] = 0xD8;
+        bytes[2] = 0xFF;
+        return bytes;
+    }
+
+    // Exceeds the 11 MB `[RequestFormLimits]` set on `MuralsController.Create` (threat model R2) —
+    // distinct from `OversizedJpegBytes`, which only exceeds FluentValidation's 10 MB photo-size
+    // rule and is meant to prove the request-level cap is what rejects it, not the validator.
+    private static byte[] RequestFormLimitExceedingBytes()
+    {
+        var bytes = new byte[11 * 1024 * 1024 + 1024 * 1024];
         bytes[0] = 0xFF;
         bytes[1] = 0xD8;
         bytes[2] = 0xFF;
@@ -205,16 +224,38 @@ public class CreateMuralTests : IClassFixture<WebApplicationFactory<Program>>
         return content;
     }
 
-    [Fact]
-    public async Task Valid_photo_and_coordinates_with_a_clean_scan_return_201_and_persist_the_mural_as_pending()
+    /// <summary>
+    /// Covers the three formats the validator/handler actually support (`CreateMuralCommandValidator.IsJpeg/IsPng/IsWebP`,
+    /// `CreateMuralCommandHandler.ExtensionFor`) — before this Theory the suite only ever exercised
+    /// JPEG, leaving `IsPng`/`IsWebP`'s `true` branch and the `image/png`/`image/webp` arms of
+    /// `ExtensionFor`'s switch uncovered (F-VER-03).
+    /// </summary>
+    [Theory]
+    [InlineData("image/jpeg", "mural.jpg", ".jpg")]
+    [InlineData("image/png", "mural.png", ".png")]
+    [InlineData("image/webp", "mural.webp", ".webp")]
+    public async Task Valid_photo_and_coordinates_with_a_clean_scan_return_201_and_persist_the_mural_as_pending(
+        string contentType, string fileName, string expectedExtension)
     {
-        var factory = CreateFactory(Guid.NewGuid().ToString(), nsfwContentScanner: new FakeNsfwContentScanner(NsfwScanResult.Clean));
+        var photoBytes = contentType switch
+        {
+            "image/jpeg" => ValidJpegBytes(),
+            "image/png" => ValidPngBytes(),
+            "image/webp" => ValidWebPBytes(),
+            _ => throw new ArgumentOutOfRangeException(nameof(contentType)),
+        };
+
+        var blobStorageService = new FakeBlobStorageService();
+        var factory = CreateFactory(
+            Guid.NewGuid().ToString(),
+            nsfwContentScanner: new FakeNsfwContentScanner(NsfwScanResult.Clean),
+            blobStorageService: blobStorageService);
         var (_, username, password) = await SeedUserAsync(factory);
         var client = factory.CreateClient();
         var token = await LoginAsync(client, username, password);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        using var content = BuildMultipartContent(ValidJpegBytes(), "image/jpeg", -34.6037, -58.3816);
+        using var content = BuildMultipartContent(photoBytes, contentType, -34.6037, -58.3816, fileName);
         var response = await client.PostAsync("/api/murals", content);
         var raw = await response.Content.ReadAsStringAsync();
 
@@ -228,6 +269,36 @@ public class CreateMuralTests : IClassFixture<WebApplicationFactory<Program>>
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var mural = db.Murals.Single(m => m.Id == id);
         Assert.Equal(MuralStatus.Pending, mural.Status);
+
+        // Also pins `ExtensionFor` picking the extension that matches the uploaded Content-Type.
+        var uploadedBlobName = Assert.Single(blobStorageService.UploadedBlobNames);
+        Assert.EndsWith(expectedExtension, uploadedBlobName);
+    }
+
+    /// <summary>
+    /// Threat model R2 (DoS por upload sin límite): `[RequestFormLimits(MultipartBodyLengthLimit = ...)]`
+    /// on `MuralsController.Create` must reject an oversized request while the multipart body is
+    /// being parsed, BEFORE it reaches FluentValidation — distinct from
+    /// `Photo_larger_than_10MB_is_rejected_with_422`, which proves the validator's own 10 MB
+    /// photo-only rule. The framework-level cap (~11 MB, over the whole multipart body) surfaces as
+    /// `400 Bad Request` (`[ApiController]`'s automatic `ModelState` validation on "Failed to read
+    /// the request form"), confirmed against this implementation's actual response rather than
+    /// assumed — see `MuralsController.Create`'s XML doc for why `[RequestSizeLimit]` was rejected
+    /// (a no-op under `TestServer`, so an equivalent test for it would silently test nothing).
+    /// </summary>
+    [Fact]
+    public async Task Request_body_larger_than_the_request_size_limit_is_rejected_with_400_before_reaching_validation()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString(), nsfwContentScanner: new FakeNsfwContentScanner(NsfwScanResult.Clean));
+        var (_, username, password) = await SeedUserAsync(factory);
+        var client = factory.CreateClient();
+        var token = await LoginAsync(client, username, password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var content = BuildMultipartContent(RequestFormLimitExceedingBytes(), "image/jpeg", 0, 0);
+        var response = await client.PostAsync("/api/murals", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -255,6 +326,60 @@ public class CreateMuralTests : IClassFixture<WebApplicationFactory<Program>>
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var content = BuildMultipartContent(NotAnImageBytes(), "image/jpeg", 0, 0);
+        var response = await client.PostAsync("/api/murals", content);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    }
+
+    /// <summary>
+    /// F-VER-03: covers `CreateMuralCommandHandler.ExtensionFor`'s `_ => string.Empty` default arm.
+    /// Byte-signature validation (`HasValidImageSignatureAsync`) never looks at the declared
+    /// `Content-Type`, only at the file's magic numbers, so a valid JPEG body sent with an
+    /// unrecognized `Content-Type` still passes validation (201) — but `ExtensionFor` then has no
+    /// arm matching that `Content-Type` and falls through to its default, so the uploaded blob name
+    /// ends up with no extension at all.
+    /// </summary>
+    [Fact]
+    public async Task Valid_photo_with_an_unrecognized_content_type_is_still_accepted_and_the_uploaded_blob_has_no_extension()
+    {
+        var blobStorageService = new FakeBlobStorageService();
+        var factory = CreateFactory(
+            Guid.NewGuid().ToString(),
+            nsfwContentScanner: new FakeNsfwContentScanner(NsfwScanResult.Clean),
+            blobStorageService: blobStorageService);
+        var (_, username, password) = await SeedUserAsync(factory);
+        var client = factory.CreateClient();
+        var token = await LoginAsync(client, username, password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var content = BuildMultipartContent(ValidJpegBytes(), "application/octet-stream", 0, 0);
+        var response = await client.PostAsync("/api/murals", content);
+        var raw = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.StatusCode == HttpStatusCode.Created, $"Expected 201, got {response.StatusCode}: {raw}");
+
+        var uploadedBlobName = Assert.Single(blobStorageService.UploadedBlobNames);
+        Assert.DoesNotContain('.', uploadedBlobName);
+    }
+
+    /// <summary>
+    /// F-VER-03: covers the "header shorter than the signature" length-check branch in
+    /// `CreateMuralCommandValidator.IsJpeg/IsPng/IsWebP` — every other test's photo is at least 12
+    /// bytes long, so `totalRead >= Signature.Length` was always true. A file smaller than any of
+    /// the three signatures makes `HasValidImageSignatureAsync` read fewer bytes than the header
+    /// buffer (the source stream runs out first), exercising the `length >= Signature.Length` guard
+    /// with a `false` outcome.
+    /// </summary>
+    [Fact]
+    public async Task Photo_shorter_than_any_image_signature_is_rejected_with_422()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString(), nsfwContentScanner: new FakeNsfwContentScanner(NsfwScanResult.Clean));
+        var (_, username, password) = await SeedUserAsync(factory);
+        var client = factory.CreateClient();
+        var token = await LoginAsync(client, username, password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var content = BuildMultipartContent([0xFF, 0xD8], "image/jpeg", 0, 0);
         var response = await client.PostAsync("/api/murals", content);
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
