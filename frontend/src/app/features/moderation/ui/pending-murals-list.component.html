@@ -1,0 +1,66 @@
+<div data-testid="pending-murals-list">
+  @if (loadError(); as message) {
+    <nz-alert nzType="error" [nzMessage]="message" nzShowIcon data-testid="load-error" />
+  }
+
+  @if (!loadError()) {
+    @for (mural of murals(); track mural.id) {
+      <nz-card [attr.data-testid]="'mural-item-' + mural.id">
+        <img [src]="mural.photoUrl" alt="Foto del mural pendiente" data-testid="mural-photo" />
+        <p data-testid="mural-location">{{ mural.latitude }}, {{ mural.longitude }}</p>
+        <p data-testid="mural-created-at">{{ mural.createdAt }}</p>
+
+        @if (itemError(mural.id!); as message) {
+          <nz-alert
+            nzType="error"
+            [nzMessage]="message"
+            nzShowIcon
+            [attr.data-testid]="'item-error-' + mural.id"
+          />
+        }
+
+        <button
+          nz-button
+          nzType="primary"
+          type="button"
+          (click)="approve(mural.id!)"
+          [attr.data-testid]="'approve-button-' + mural.id"
+        >
+          Aprobar
+        </button>
+        <button
+          nz-button
+          nzDanger
+          type="button"
+          (click)="rejectMural(mural.id!)"
+          [attr.data-testid]="'reject-button-' + mural.id"
+        >
+          Rechazar
+        </button>
+      </nz-card>
+    } @empty {
+      <p data-testid="empty-message">No hay murales pendientes de revisión.</p>
+    }
+  }
+
+  <div>
+    <button
+      nz-button
+      type="button"
+      [disabled]="!canGoPrevious()"
+      (click)="previousPage()"
+      data-testid="previous-button"
+    >
+      Anterior
+    </button>
+    <button
+      nz-button
+      type="button"
+      [disabled]="!canGoNext()"
+      (click)="nextPage()"
+      data-testid="next-button"
+    >
+      Siguiente
+    </button>
+  </div>
+</div>

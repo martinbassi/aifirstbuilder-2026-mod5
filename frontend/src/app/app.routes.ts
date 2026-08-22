@@ -64,4 +64,12 @@ export const routes: Routes = [
         (m) => m.CreateMuralFormComponent,
       ),
   },
+  {
+    path: 'moderation',
+    canActivate: [authGuard, adminGuard],
+    loadComponent: () =>
+      import('./features/moderation/ui/pending-murals-list.component').then(
+        (m) => m.PendingMuralsListComponent,
+      ),
+  },
 ];
