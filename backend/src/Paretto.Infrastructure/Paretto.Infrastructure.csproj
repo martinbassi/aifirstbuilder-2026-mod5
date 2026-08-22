@@ -49,10 +49,18 @@
     14.16.0 (latest stable) below to override that transitive version; NsfwSpy only calls the
     stable MagickImage(byte[]) constructor and ToByteArray(MagickFormat), unaffected by the
     major-version bump. Re-verified clean after the pin (see report).
+
+    CODE closeout (FEAT-001b, Block 8, SAST F-SAST-13): same situation for a second transitive
+    dependency — NsfwSpy → Microsoft.ML → Newtonsoft.Json 10.0.3, High severity
+    (GHSA-5crp-9r3c-p9vr, resource-exhaustion via deeply nested JSON, fixed in 13.0.1). Pinned
+    explicitly to 13.0.4 (latest stable) below, same override pattern as Magick.NET-Q16-AnyCPU.
+    Nothing in this codebase calls Newtonsoft.Json directly — the pin only overrides the transitive
+    resolution MimeTypesMap gets at build time. Re-verified clean after the pin (see report).
   -->
   <ItemGroup>
     <PackageReference Include="NsfwSpy" Version="3.5.0" />
     <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.16.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 
   <PropertyGroup>
