@@ -15,3 +15,17 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   al backend vía cliente NSwag generado. Mitigaciones de seguridad incluidas: mensajes genéricos
   anti-enumeración de cuentas, rate limiting básico en `/login`/`/register`, CSP, elevación de
   privilegios prevenida (el rol nunca se toma del payload del cliente).
+- **FEAT-001b — Crear mural**: carga de fotos de murales con geolocalización (automática o manual),
+  almacenadas en Azure Storage con SAS de solo lectura de corta duración; validación NSFW
+  (NsfwSpy) antes de publicar, dejando el mural `Pending`/`Rejected` según el resultado; validación
+  de firma de bytes (magic number) en vez de confiar en `Content-Type`/extensión; límite de tamaño
+  de request (~11MB) además del límite de 10MB por foto; formulario Angular con reintento sin
+  perder los datos ya ingresados; ruta `/murals/new` protegida por sesión. Ningún mural
+  `Pending`/`Rejected` es visible para nadie que no sea su dueño (404 genérico anti-enumeración).
+
+### Fixed
+
+- **FEAT-001b**: reemplazado `InvariantGlobalization=true` (incompatible con
+  `Microsoft.Data.SqlClient`) por `CultureInfo.DefaultThreadCurrentCulture` (ver ADR-004).
+  Actualizado `Newtonsoft.Json` a 13.0.4 por una vulnerabilidad High transitiva vía
+  `NsfwSpy → Microsoft.ML`.
