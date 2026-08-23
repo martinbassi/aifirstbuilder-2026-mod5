@@ -6,6 +6,7 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { ApiError } from '../../../core/http/api-error';
+import { LogoComponent } from '../../../shared/logo/logo.component';
 import { AuthService } from '../data/auth.service';
 
 interface LoginFormControls {
@@ -19,6 +20,7 @@ interface LoginFormControls {
   imports: [
     ReactiveFormsModule,
     RouterLink,
+    LogoComponent,
     NzAlertModule,
     NzButtonModule,
     NzFormModule,

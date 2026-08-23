@@ -48,6 +48,15 @@ describe('LoginFormComponent', () => {
     expect(errorEl.textContent?.trim()).toBe('Invalid username or password.');
   });
 
+  // Required test (Block 3, AC-03): la pantalla de login muestra el logo compartido.
+  it('renderiza el logo compartido (app-logo)', () => {
+    const fixture = TestBed.createComponent(LoginFormComponent);
+    fixture.detectChanges();
+
+    const logoEl = fixture.nativeElement.querySelector('app-logo');
+    expect(logoEl).toBeTruthy();
+  });
+
   it('no muestra ningún mensaje de error cuando no se envió el formulario', () => {
     const fixture = TestBed.createComponent(LoginFormComponent);
     fixture.detectChanges();
