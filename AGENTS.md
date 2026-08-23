@@ -30,7 +30,7 @@ language these instructions are written in.
 | Database | SQL Server 2025 (localhost) + EF Core |
 | Test runner | Vitest (frontend) · xUnit (backend) |
 | Linter / formatter | ESLint + Prettier |
-| Typecheck | `npx tsc --noEmit -p tsconfig.json` (frontend) |
+| Typecheck | `npx tsc --build --noEmit tsconfig.json` (frontend) — `tsconfig.json` uses project references (`"files": []`); `-p tsconfig.json` without `--build` checks nothing and always exits 0 |
 | Package manager | npm (frontend) · NuGet (backend) |
 
 ---
@@ -76,6 +76,8 @@ language these instructions are written in.
   `HttpInterceptor`; never a `catchError` that swallows the error without propagating or surfacing it to the UI.
 - **Naming:** files in kebab-case (`mural-map.component.ts`), components/classes in PascalCase (`MuralMapComponent`),
   signals and inputs in camelCase. Component selectors prefixed with the project prefix (`app-mural-map`).
+- **Templates:** every component uses `templateUrl` pointing to a separate `.component.html` file —
+  never an inline `template:` string, regardless of how small the template is.
 - **Dependencies:** no new libraries without justifying in the spec why ng-zorro or the current stack
   (Angular, Leaflet) doesn't already cover it. NSwag is part of the base stack (auto-generates the HTTP
   client from the backend's OpenAPI spec) and doesn't need to be justified case by case — regenerate the

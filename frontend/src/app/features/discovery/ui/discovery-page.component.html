@@ -1,0 +1,62 @@
+<div data-testid="discovery-page">
+  @if (errorMessage(); as message) {
+    <nz-alert nzType="error" [nzMessage]="message" nzShowIcon data-testid="error-message" />
+  }
+
+  @if (manualLocationRequired()) {
+    <form data-testid="manual-location-form" (ngSubmit)="searchManually()">
+      <p data-testid="manual-location-hint">
+        No pudimos obtener tu ubicación. Ingresala manualmente para ver los murales cercanos.
+      </p>
+      <nz-form-item>
+        <nz-form-label nzFor="discovery-latitude" nzRequired>Latitud</nz-form-label>
+        <nz-form-control>
+          <input
+            nz-input
+            type="number"
+            step="any"
+            id="discovery-latitude"
+            [value]="manualLatitude()"
+            (input)="onLatitudeChange($event)"
+            data-testid="latitude-input"
+          />
+        </nz-form-control>
+      </nz-form-item>
+      <nz-form-item>
+        <nz-form-label nzFor="discovery-longitude" nzRequired>Longitud</nz-form-label>
+        <nz-form-control>
+          <input
+            nz-input
+            type="number"
+            step="any"
+            id="discovery-longitude"
+            [value]="manualLongitude()"
+            (input)="onLongitudeChange($event)"
+            data-testid="longitude-input"
+          />
+        </nz-form-control>
+      </nz-form-item>
+      <button
+        nz-button
+        nzType="primary"
+        type="submit"
+        [disabled]="!canSearchManually()"
+        [nzLoading]="loading()"
+        data-testid="search-button"
+      >
+        Buscar
+      </button>
+    </form>
+  }
+
+  @if (loading()) {
+    <p data-testid="loading-message">Buscando murales cercanos…</p>
+  }
+
+  <app-discovery-map
+    [items]="items()"
+    [center]="center()"
+    (muralSelected)="onMuralSelected()"
+  />
+  <app-discovery-list [items]="items()" (muralSelected)="onMuralSelected()" />
+</div>
