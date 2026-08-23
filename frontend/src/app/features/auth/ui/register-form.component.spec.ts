@@ -47,6 +47,20 @@ describe('RegisterFormComponent', () => {
     expect(errorEl.textContent?.trim()).toBe('Username or email is already in use.');
   });
 
+  // Required test (Block 3, AC-04): la pantalla de register muestra el mismo logo compartido que
+  // login (mismo componente `LogoComponent` → mismo alt, mismo src).
+  it('renderiza el logo compartido (app-logo), con el mismo alt y src que en login', () => {
+    const fixture = TestBed.createComponent(RegisterFormComponent);
+    fixture.detectChanges();
+
+    const logoEl = fixture.nativeElement.querySelector('app-logo');
+    expect(logoEl).toBeTruthy();
+
+    const img: HTMLImageElement = logoEl.querySelector('img');
+    expect(img.getAttribute('src')).toBe('/images/logo.jpg');
+    expect(img.getAttribute('alt')).toBe('paretto — urban art discovery');
+  });
+
   it('no muestra ningún mensaje de error cuando no se envió el formulario', () => {
     const fixture = TestBed.createComponent(RegisterFormComponent);
     fixture.detectChanges();
