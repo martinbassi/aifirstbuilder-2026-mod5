@@ -14,6 +14,7 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { ApiError } from '../../../core/http/api-error';
 import { LogoComponent } from '../../../shared/logo/logo.component';
 import { AuthService } from '../data/auth.service';
+import { AuthCardComponent } from './auth-card/auth-card.component';
 
 interface RegisterFormControls {
   username: FormControl<string>;
@@ -40,6 +41,7 @@ function passwordComplexityValidator(control: FormControl<string>): ValidationEr
     ReactiveFormsModule,
     RouterLink,
     LogoComponent,
+    AuthCardComponent,
     NzAlertModule,
     NzButtonModule,
     NzFormModule,

@@ -57,6 +57,25 @@ describe('LoginFormComponent', () => {
     expect(logoEl).toBeTruthy();
   });
 
+  // Required test (Block 2, AC-01/AC-03): el logo y el form quedan envueltos por app-auth-card,
+  // con el logo antes del form en el árbol DOM.
+  it('envuelve el logo y el form dentro de app-auth-card, con el logo antes que el form', () => {
+    const fixture = TestBed.createComponent(LoginFormComponent);
+    fixture.detectChanges();
+
+    const authCard: HTMLElement | null = fixture.nativeElement.querySelector('app-auth-card');
+    expect(authCard).toBeTruthy();
+
+    const logoEl: HTMLElement | null = authCard!.querySelector('app-logo');
+    const formEl: HTMLElement | null = authCard!.querySelector('form');
+    expect(logoEl).toBeTruthy();
+    expect(formEl).toBeTruthy();
+
+    const position = logoEl!.compareDocumentPosition(formEl!);
+    // eslint-disable-next-line no-bitwise
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('no muestra ningún mensaje de error cuando no se envió el formulario', () => {
     const fixture = TestBed.createComponent(LoginFormComponent);
     fixture.detectChanges();

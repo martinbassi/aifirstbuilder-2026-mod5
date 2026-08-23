@@ -61,6 +61,31 @@ describe('RegisterFormComponent', () => {
     expect(img.getAttribute('alt')).toBe('paretto — urban art discovery');
   });
 
+  // Required test (Block 2, AC-02/AC-03/AC-08): el logo y el form quedan envueltos por
+  // app-auth-card, con el logo antes que el form, y usando la misma clase/ancho máximo de card
+  // que login (mismo componente compartido AuthCardComponent, no duplicación).
+  it('envuelve el logo y el form dentro de app-auth-card, con el logo antes que el form y la misma clase que login', () => {
+    const fixture = TestBed.createComponent(RegisterFormComponent);
+    fixture.detectChanges();
+
+    const authCard: HTMLElement | null = fixture.nativeElement.querySelector('app-auth-card');
+    expect(authCard).toBeTruthy();
+
+    const logoEl: HTMLElement | null = authCard!.querySelector('app-logo');
+    const formEl: HTMLElement | null = authCard!.querySelector('form');
+    expect(logoEl).toBeTruthy();
+    expect(formEl).toBeTruthy();
+
+    const position = logoEl!.compareDocumentPosition(formEl!);
+    // eslint-disable-next-line no-bitwise
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // Mismo ancho máximo/clase que login: el wrapper es el mismo AuthCardComponent compartido,
+    // reconocible por la clase `auth-card` en el nz-card interno.
+    const card: HTMLElement | null = authCard!.querySelector('nz-card.auth-card');
+    expect(card).toBeTruthy();
+  });
+
   it('no muestra ningún mensaje de error cuando no se envió el formulario', () => {
     const fixture = TestBed.createComponent(RegisterFormComponent);
     fixture.detectChanges();

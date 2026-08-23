@@ -1,43 +1,52 @@
-<app-logo />
+<app-auth-card>
+  <app-logo />
 
-<form nz-form [formGroup]="form" (ngSubmit)="submit()">
-  @if (errorMessage(); as message) {
-    <nz-alert nzType="error" [nzMessage]="message" nzShowIcon data-testid="error-message" />
-  }
+  <form nz-form [formGroup]="form" (ngSubmit)="submit()">
+    @if (errorMessage(); as message) {
+      <nz-alert nzType="error" [nzMessage]="message" nzShowIcon data-testid="error-message" />
+    }
 
-  <nz-form-item>
-    <nz-form-label nzFor="register-username" nzRequired>Usuario</nz-form-label>
-    <nz-form-control>
-      <input nz-input id="register-username" formControlName="username" autocomplete="username" />
-    </nz-form-control>
-  </nz-form-item>
+    <nz-form-item>
+      <nz-form-label nzFor="register-username" nzRequired>Usuario</nz-form-label>
+      <nz-form-control>
+        <input
+          nz-input
+          id="register-username"
+          formControlName="username"
+          autocomplete="username"
+        />
+      </nz-form-control>
+    </nz-form-item>
 
-  <nz-form-item>
-    <nz-form-label nzFor="register-email" nzRequired>Email</nz-form-label>
-    <nz-form-control>
-      <input
-        nz-input
-        id="register-email"
-        type="email"
-        formControlName="email"
-        autocomplete="email"
-      />
-    </nz-form-control>
-  </nz-form-item>
+    <nz-form-item>
+      <nz-form-label nzFor="register-email" nzRequired>Email</nz-form-label>
+      <nz-form-control>
+        <input
+          nz-input
+          id="register-email"
+          type="email"
+          formControlName="email"
+          autocomplete="email"
+        />
+      </nz-form-control>
+    </nz-form-item>
 
-  <nz-form-item>
-    <nz-form-label nzFor="register-password" nzRequired>Contraseña</nz-form-label>
-    <nz-form-control>
-      <input
-        nz-input
-        id="register-password"
-        type="password"
-        formControlName="password"
-        autocomplete="new-password"
-      />
-    </nz-form-control>
-  </nz-form-item>
+    <nz-form-item>
+      <nz-form-label nzFor="register-password" nzRequired>Contraseña</nz-form-label>
+      <nz-form-control>
+        <input
+          nz-input
+          id="register-password"
+          type="password"
+          formControlName="password"
+          autocomplete="new-password"
+        />
+      </nz-form-control>
+    </nz-form-item>
 
-  <button nz-button nzType="primary" type="submit" [nzLoading]="submitting()">Crear cuenta</button>
-  <a routerLink="/login">Ya tengo una cuenta</a>
-</form>
+    <button nz-button nzType="primary" type="submit" [nzLoading]="submitting()">
+      Crear cuenta
+    </button>
+    <a routerLink="/login">Ya tengo una cuenta</a>
+  </form>
+</app-auth-card>
