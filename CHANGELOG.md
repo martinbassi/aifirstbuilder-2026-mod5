@@ -47,3 +47,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   `Microsoft.Data.SqlClient`) por `CultureInfo.DefaultThreadCurrentCulture` (ver ADR-004).
   Actualizado `Newtonsoft.Json` a 13.0.4 por una vulnerabilidad High transitiva vía
   `NsfwSpy → Microsoft.ML`.
+- **FIX-001**: configurado CORS para desarrollo local — el backend nunca registraba
+  `AddCors`/`UseCors`, bloqueando toda llamada del frontend (`http://localhost:4200`) a la API
+  (`https://localhost:7126`) al correr ambos por separado. Policy `DevelopmentCors` gateada por
+  `IsDevelopment()`, sin efecto en producción.
