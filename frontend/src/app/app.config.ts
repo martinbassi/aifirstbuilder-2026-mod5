@@ -16,6 +16,7 @@ import en from '@angular/common/locales/en';
 import {
   API_BASE_URL,
   AuthClient,
+  DiscoveryClient,
   ModerationClient,
   MuralsClient,
 } from './core/api-client/api-client.generated';
@@ -38,6 +39,10 @@ export const appConfig: ApplicationConfig = {
     // MuralService but never registered here, causing a NullInjectorError in production — masked
     // in tests because mural.service.spec.ts provides MuralsClient manually.
     MuralsClient,
+    // Pre-existing gap fixed here (QUICK-FIX-001): same class of bug as MuralsClient above —
+    // DiscoveryClient was used by DiscoveryService but never registered here, causing NG0201 on
+    // /discover as soon as it loaded.
+    DiscoveryClient,
     provideNzI18n(en_US),
     // Íconos usados por nz-alert (mensajes de error de los formularios de auth, Block 8).
     provideNzIcons([
