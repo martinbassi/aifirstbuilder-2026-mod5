@@ -9,7 +9,11 @@
 ## Context
 
 `frontend/angular.json` carga hoy `ng-zorro-antd.min.css` — el CSS de ng-zorro completamente
-compilado, sin ninguna variable (`grep -c "var(--ant"` da 0 en ese archivo). FEAT-002 exige que la
+compilado. Es un archivo minificado de una sola línea, así que `grep -c` sobre él siempre da como
+máximo 1 (cuenta líneas, no ocurrencias); la comprobación real es `grep -o` contando ocurrencias:
+`var(--ant-primary-color` da 0 en `min.css` (sí tiene otras variables de subsistemas distintos,
+como `--antd-wave-shadow-color`, irrelevantes para esta decisión) contra 281 en `variable.css`.
+FEAT-002 exige que la
 paleta de colores (primario `#FE6944`, secundario `#0D2348`) impacte **todos** los componentes de
 ng-zorro sobreescribiendo variables de theming globales, no con estilos ad-hoc por componente (FR-07
 del PRD) — es infraestructura de build compartida por toda la app, no algo propio de una feature
@@ -45,7 +49,8 @@ sobreescritura en `:root` propague a todos los componentes, sin tocar Less ni el
 ## Consequences
 
 - `frontend/angular.json`: en el array `styles`, `ng-zorro-antd.min.css` → `ng-zorro-antd.variable.css`.
-- `frontend/src/styles.css`: bloque `:root` con `--ant-primary-color` (+ hover/active derivados) y
+- `frontend/src/styles.css`: bloque `:root` con `--ant-primary-color` (+ hover/active/outline
+  derivados — `outline` es la usada por ng-zorro en el box-shadow de foco de inputs/botones) y
   `--app-color-secondary` (+ derivados) — variable propia del proyecto, no del catálogo de ng-zorro.
 - Ningún componente existente cambia: los overrides son transversales, sin tocar código de features.
 - Si en el futuro se necesita un mecanismo de theming más allá de lo que expone

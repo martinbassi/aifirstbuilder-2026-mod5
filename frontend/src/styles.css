@@ -10,5 +10,21 @@
 
 html,
 body {
-  font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    'Quicksand',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+:root {
+  --ant-primary-color: #fe6944;
+  --ant-primary-color-hover: #fe9a81;
+  --ant-primary-color-active: #fe3807;
+  --ant-primary-color-outline: rgba(254, 105, 68, 0.2);
+
+  --app-color-secondary: #0d2348;
+  --app-color-secondary-hover: #163c7c;
+  --app-color-secondary-active: #071225;
 }
