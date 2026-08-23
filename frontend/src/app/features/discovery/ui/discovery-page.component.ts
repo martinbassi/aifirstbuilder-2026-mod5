@@ -1,0 +1,137 @@
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { NzAlertModule } from 'ng-zorro-antd/alert';
+import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzFormModule } from 'ng-zorro-antd/form';
+import { NzInputModule } from 'ng-zorro-antd/input';
+import { NearbyMuralItemResponse } from '../../../core/api-client/api-client.generated';
+import { ApiError } from '../../../core/http/api-error';
+import { GeolocationCoordinates, GeolocationService } from '../../../shared/geolocation.service';
+import { DiscoveryService } from '../data/discovery.service';
+import { DiscoveryMapComponent } from './discovery-map.component';
+import { DiscoveryListComponent } from './discovery-list.component';
+
+const MIN_LATITUDE = -90;
+const MAX_LATITUDE = 90;
+const MIN_LONGITUDE = -180;
+const MAX_LONGITUDE = 180;
+
+/**
+ * Public entry point of the `discovery` feature (spec Block 7, FR-03/FR-04/FR-06). Reachable
+ * without a session (Block 8 wires the route). On init, asks `GeolocationService` (Block 6) for
+ * the visitor's position and, on success, queries `discovery.service.ts` with it. If geolocation
+ * rejects (any of its 3 typed `kind`s), the query is NOT fired automatically — a manual lat/lng
+ * fallback is shown instead, same spirit as `create-mural-form`'s fallback (FR-06). If the query
+ * itself fails, a generic error is shown — never swallowed (AGENTS.md, Frontend → Error handling).
+ * Composes `DiscoveryMapComponent` + `DiscoveryListComponent`, passing them the loaded `items`.
+ */
+@Component({
+  selector: 'app-discovery-page',
+  standalone: true,
+  imports: [
+    NzAlertModule,
+    NzButtonModule,
+    NzFormModule,
+    NzInputModule,
+    DiscoveryMapComponent,
+    DiscoveryListComponent,
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  templateUrl: './discovery-page.component.html',
+})
+export class DiscoveryPageComponent implements OnInit {
+  private readonly geolocationService = inject(GeolocationService);
+  private readonly discoveryService = inject(DiscoveryService);
+
+  readonly items = signal<NearbyMuralItemResponse[]>([]);
+  readonly center = signal<GeolocationCoordinates | null>(null);
+
+  readonly loading = signal(false);
+  readonly errorMessage = signal<string | null>(null);
+
+  /** True once `GeolocationService` is known to have rejected — reveals the manual lat/lng input
+   * without blocking the rest of the page (FR-06), same pattern as `create-mural-form`. */
+  readonly manualLocationRequired = signal(false);
+  readonly manualLatitude = signal<number | null>(null);
+  readonly manualLongitude = signal<number | null>(null);
+
+  readonly canSearchManually = computed(() => {
+    const latitude = this.manualLatitude();
+    const longitude = this.manualLongitude();
+    return (
+      latitude !== null &&
+      latitude >= MIN_LATITUDE &&
+      latitude <= MAX_LATITUDE &&
+      longitude !== null &&
+      longitude >= MIN_LONGITUDE &&
+      longitude <= MAX_LONGITUDE &&
+      !this.loading()
+    );
+  });
+
+  ngOnInit(): void {
+    this.requestGeolocation();
+  }
+
+  onLatitudeChange(event: Event): void {
+    this.manualLatitude.set(this.parseNumberInput(event));
+  }
+
+  onLongitudeChange(event: Event): void {
+    this.manualLongitude.set(this.parseNumberInput(event));
+  }
+
+  /** Triggered by the manual fallback form once the visitor typed coordinates themselves. */
+  searchManually(): void {
+    if (!this.canSearchManually()) {
+      return;
+    }
+    const latitude = this.manualLatitude() as number;
+    const longitude = this.manualLongitude() as number;
+    this.center.set({ latitude, longitude });
+    this.fetchNearbyMurals(latitude, longitude);
+  }
+
+  /** Currently just tracked for a future "highlight on the map"/"scroll to" behavior — the
+   * spec's completion criterion for this block only requires the selection to surface a detail,
+   * which `discovery-list` already renders inline on its own selection state; wiring both
+   * children's `muralSelected` output here keeps `discovery-page` as the single place that would
+   * coordinate cross-component selection if that need ever comes up. */
+  onMuralSelected(): void {
+    // Intentionally empty for this block — see comment above.
+  }
+
+  /** Delegates to `GeolocationService` (Block 6). On any of its 3 typed error cases, the query is
+   * NOT fired automatically — falls back to the manual lat/lng form instead (FR-06). */
+  private requestGeolocation(): void {
+    this.geolocationService.getCurrentPosition().then(
+      (coordinates) => {
+        this.center.set(coordinates);
+        this.fetchNearbyMurals(coordinates.latitude, coordinates.longitude);
+      },
+      () => {
+        this.manualLocationRequired.set(true);
+      },
+    );
+  }
+
+  private fetchNearbyMurals(latitude: number, longitude: number): void {
+    this.loading.set(true);
+    this.errorMessage.set(null);
+
+    this.discoveryService.getNearbyMurals(latitude, longitude).subscribe({
+      next: (items) => {
+        this.loading.set(false);
+        this.items.set(items);
+      },
+      error: (error: ApiError) => {
+        this.loading.set(false);
+        this.errorMessage.set(error.message);
+      },
+    });
+  }
+
+  private parseNumberInput(event: Event): number | null {
+    const value = (event.target as HTMLInputElement).valueAsNumber;
+    return Number.isNaN(value) ? null : value;
+  }
+}

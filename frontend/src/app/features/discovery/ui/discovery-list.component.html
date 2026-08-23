@@ -1,0 +1,24 @@
+<div data-testid="discovery-list">
+  @if (items().length === 0) {
+    <p data-testid="empty-message">
+      No se encontraron murales publicados en este radio.
+    </p>
+  } @else {
+    @for (item of items(); track item.id) {
+      <nz-card
+        [attr.data-testid]="'discovery-item-' + item.id"
+        (click)="select(item)"
+      >
+        <p data-testid="item-distance">{{ item.distanceKm }} km</p>
+
+        @if (selectedItem()?.id === item.id) {
+          <div data-testid="item-detail">
+            <img [src]="item.photoUrl" alt="Foto del mural" data-testid="item-photo" />
+            <p data-testid="item-created-at">{{ item.createdAt }}</p>
+            <p data-testid="item-location">{{ item.latitude }}, {{ item.longitude }}</p>
+          </div>
+        }
+      </nz-card>
+    }
+  }
+</div>

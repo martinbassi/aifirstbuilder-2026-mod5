@@ -65,6 +65,13 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(m => m.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Índice B-tree compuesto (no espacial: SQL Server no ofrece uno para columnas `float`
+            // sueltas) que permite que el filtro Status == Published junto con el rango de
+            // Latitude/Longitude del bounding box (FEAT-001d, GeoDistanceCalculator.BoundingBox) use
+            // seek en vez de scan completo de la tabla. Ver ADR-005.
+            entity.HasIndex(m => new { m.Status, m.Latitude, m.Longitude })
+                .HasDatabaseName("IX_Murals_Status_Latitude_Longitude");
         });
     }
 }

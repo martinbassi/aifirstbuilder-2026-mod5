@@ -112,6 +112,21 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
             }));
+
+    // Block 3 (FEAT-001d), mitigation R3 of the discovery threat model
+    // (docs/daw/security/threat-FEAT-001d.md): a stricter, endpoint-specific policy for the public,
+    // unauthenticated `GET /api/discovery/nearby-murals` — 20 req/min per IP, on top of the
+    // GlobalLimiter above (100 req/min). Both apply on the same endpoint; the stricter one (20) is
+    // the one that limits in practice.
+    options.AddPolicy("discovery", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
 });
 
 builder.Services.AddEndpointsApiExplorer();
