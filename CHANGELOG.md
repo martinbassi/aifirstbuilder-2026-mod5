@@ -40,6 +40,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   sesión) accesible en `/discover`; ruteo raíz redirige a `/discover` con sesión activa o a `/login`
   sin ella. `GeolocationService` compartido, extraído de `create-mural-form` para reutilizarse en el
   descubrimiento.
+- **FEAT-002 — Identidad visual**: tipografía Quicksand self-hosted (WOFF2 variable, sin depender de
+  Google Fonts) aplicada globalmente con fallback al stack del sistema; paleta de colores primario
+  coral (`#FE6944`) / secundario azul marino (`#0D2348`) vía variables CSS en `:root` sobre el
+  theming de ng-zorro (ver ADR-006); logo compartido (`LogoComponent`, presentacional) en `/login` y
+  `/register`; favicon reemplazado por el ícono del logo (pin + aerosol, multi-resolución
+  16/32/48px). Incluye `frontend/scripts/verify-theme.mjs`, un script Node standalone (fuera del
+  pipeline de `ng test`) que verifica por texto plano que la tipografía y las variables de color se
+  aplican correctamente — resuelve una limitación real de Vitest/Angular (el CSS global no se
+  inyecta en el DOM del test runner).
 
 ### Fixed
 
