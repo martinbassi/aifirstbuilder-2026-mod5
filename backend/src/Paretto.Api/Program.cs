@@ -132,6 +132,24 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// FIX-001: el frontend (ng serve, http://localhost:4200) y la API (dotnet run,
+// https://localhost:7126) son orígenes distintos en desarrollo local — sin CORS el navegador
+// bloquea toda request cross-origin. Exclusiva de desarrollo local: producción, cuando exista,
+// necesita su propia policy con el dominio real; no reutilizar "DevelopmentCors" (mitigación R2,
+// docs/daw/security/threat-FIX-001.md). El bloque completo vive dentro de IsDevelopment() para que
+// Production nunca lo registre; el `?? Array.Empty<string>()` es una segunda defensa en
+// profundidad (mitigación R1) por si el bloque se moviera fuera del gate en el futuro.
+if (builder.Environment.IsDevelopment())
+{
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+        ?? Array.Empty<string>();
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("DevelopmentCors", policy =>
+            policy.WithOrigins(allowedOrigins).AllowAnyMethod().AllowAnyHeader());
+    });
+}
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -146,6 +164,7 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseCors("DevelopmentCors");
 }
 
 app.UseHttpsRedirection();
