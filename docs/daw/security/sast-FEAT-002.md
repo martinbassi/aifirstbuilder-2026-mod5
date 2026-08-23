@@ -14,6 +14,17 @@ theming (`styles.css`, `angular.json`) y un componente Angular puramente present
 (`LogoComponent`, sin `@Input()`, sin lógica, sin llamadas a servicios) consumido por `login-form` y
 `register-form`. Ningún endpoint, query, ni flujo de datos de usuario nuevo.
 
+## Addendum — re-scan tras loop correctivo VERIFY→CODE
+
+Cambio: `frontend/scripts/verify-theme.mjs` (script Node standalone nuevo, fuera de `ng test`, que
+cierra la deuda de tests de AC-01/AC-02/AC-07 detectada en VERIFY) + `frontend/package.json` (agrega
+el script npm `verify-theme`). Revisado contra las mismas 20 categorías: solo lee dos archivos fijos
+del propio repo (`src/index.html`, `src/styles.css`) con `node:fs`, sin input externo, sin
+`eval`/`exec`/`child_process`, sin secretos, sin dependencias npm nuevas (solo built-ins de Node).
+Superficie de ataque nula — no hay dato de usuario ni proceso en producción involucrado.
+
+**Result: PASSED**
+
 ## Secrets (F-SAST-01)
 - ✅ Sin credenciales/API keys hardcodeadas en ningún archivo del diff (`grep` de patrones
   `api_key|password=|secret|token=` sobre `logo.component.*`, `login-form.component.*`,
