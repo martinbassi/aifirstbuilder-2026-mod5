@@ -136,3 +136,37 @@ fallback) y por el test de "Production safety" de arriba.
   empezara a responder distinto para requests cross-origin no autenticadas (no debería, ya que
   `UseAuthentication()`/`UseAuthorization()` siguen corriendo después de `UseCors()` sin cambios),
   o si el arranque en cualquier entorno lanzara una excepción nueva relacionada a `Cors`.
+
+## Evidencia TDD
+
+Los 3 tests de `CorsTests.cs` se escribieron completos antes de tocar `Program.cs`/
+`appsettings.Development.json`. Para dejar constancia del rojo→verde (hallazgo de VERIFY ronda 1,
+`docs/daw/reports/verify-FIX-001.md`), se revirtió temporalmente el fix con `git stash` (dejando
+`CorsTests.cs` en su lugar) y se corrió `dotnet test --filter "FullyQualifiedName~CorsTests"`:
+
+**Sin el fix (rojo):**
+```
+[FAIL] Request_with_Origin_localhost_4200_in_Development_receives_Access_Control_Allow_Origin_header
+Mensaje de error: Expected Access-Control-Allow-Origin header to be present.
+Con error: 1, Superado: 2, Omitido: 0, Total: 3
+```
+
+- `Request_with_Origin_localhost_4200_in_Development_receives_Access_Control_Allow_Origin_header`
+  → **FAIL**. Es el test que reproduce el bug original: sin `AddCors`/`UseCors`, ASP.NET Core nunca
+  agrega `Access-Control-Allow-Origin` a la respuesta.
+- `Request_with_a_different_Origin_does_not_receive_Access_Control_Allow_Origin_header` → pasaba
+  igual sin el fix (sin CORS activo, ningún origen recibe el header — trivialmente cierto, no
+  ejercita la corrección en sí, ejercita la mitigación R3 del threat model).
+- `AddCors_is_not_registered_when_the_host_runs_outside_Development` → pasaba igual sin el fix (sin
+  `AddCors` registrado en absoluto, el host arranca sin excepción en cualquier entorno — cierto con
+  o sin el fix, ejercita la mitigación R1).
+
+**Con el fix restaurado (`git stash pop`) — verde:**
+```
+Correctas! - Con error: 0, Superado: 3, Omitido: 0, Total: 3
+```
+
+Solo el primer test es el que efectivamente detecta la regresión (rojo→verde); los otros dos
+validan mitigaciones del threat model que ya se cumplían por razones distintas antes del fix
+(ausencia total de CORS / ausencia total de `AddCors`), no el bug en sí — están para que una
+regresión futura en esas mitigaciones específicas también quede cubierta.

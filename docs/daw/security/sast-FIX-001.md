@@ -67,3 +67,13 @@ Ninguna — no hubo hallazgos Medium que requirieran documentación de supresió
 ## Resultado
 
 Total: 15 categorías revisadas, 0 hallazgos Critical/High/Medium, 0 warnings.
+
+---
+
+## Re-scan — 2026-08-23 (post corrective loop de VERIFY)
+
+**Alcance del cambio:** exclusivamente documental — se agregó la sección "Evidencia TDD" a
+`docs/daw/specs/fix-FIX-001.md` (hallazgo de VERIFY ronda 1: la evidencia rojo→verde existía pero no
+estaba persistida en disco). Sin cambios en código de producción, tests, ni dependencias.
+
+**Resultado:** 0 hallazgos Critical/High/Medium, 0 warnings. `gates.sast` se re-otorga.
