@@ -68,16 +68,24 @@ public class GeoDistanceCalculatorTests
     [Fact]
     public void BoundingBox_near_the_poles_does_not_throw_or_return_NaN_or_Infinity()
     {
-        const double nearNorthPoleLat = 89.9;
+        // Exactamente en el polo: cos(90°) ≈ 6.12e-17, por debajo del umbral 1e-10 de la guarda
+        // (GeoDistanceCalculator.cs:49) — este valor SÍ dispara la rama `deltaLon = 180.0`, a
+        // diferencia de 89.9° (cos ≈ 0.0017, muy por encima del umbral), que la dejaba sin probar.
+        const double northPoleLat = 90.0;
         const double lon = 10.0;
         const double radiusKm = 5.0;
 
         var (minLat, maxLat, minLon, maxLon) =
-            GeoDistanceCalculator.BoundingBox(nearNorthPoleLat, lon, radiusKm);
+            GeoDistanceCalculator.BoundingBox(northPoleLat, lon, radiusKm);
 
         Assert.False(double.IsNaN(minLat) || double.IsInfinity(minLat));
         Assert.False(double.IsNaN(maxLat) || double.IsInfinity(maxLat));
         Assert.False(double.IsNaN(minLon) || double.IsInfinity(minLon));
         Assert.False(double.IsNaN(maxLon) || double.IsInfinity(maxLon));
+
+        // La guarda debe haber activado deltaLon = 180.0 (todo el rango de longitud), no el cálculo
+        // por división de cosLat.
+        Assert.Equal(lon - 180.0, minLon, precision: 9);
+        Assert.Equal(lon + 180.0, maxLon, precision: 9);
     }
 }

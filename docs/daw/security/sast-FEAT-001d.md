@@ -101,3 +101,23 @@ Ninguna — no hubo hallazgos Medium que requirieran documentación de supresió
 ## Resultado
 
 Total: 20 categorías revisadas, 0 hallazgos Critical/High/Medium, 0 warnings.
+
+---
+
+## Re-scan — 2026-08-23 (post corrective loop de VERIFY)
+
+**Alcance del cambio:** un único archivo, `backend/tests/Paretto.Api.Tests/GeoDistanceCalculatorTests.cs`
+— ajuste del test `BoundingBox_near_the_poles_does_not_throw_or_return_NaN_or_Infinity` (usa
+`lat=90.0` en vez de `89.9` para ejercitar realmente la guarda de `GeoDistanceCalculator.cs:49`, y
+afirma explícitamente `deltaLon == 180.0`). Sin cambios en código de producción, sin dependencias
+nuevas, sin superficie de ataque nueva.
+
+- ✅ Secrets (F-SAST-01): sin cambios, no aplica.
+- ✅ Inyección/XSS/funciones inseguras: no aplica — el diff es un test unitario puro (`Assert.*`
+  sobre valores `double`), sin input externo, sin I/O, sin red.
+- ✅ Dependencias (F-SAST-13/16): `dotnet list package --vulnerable --include-transitive` (4
+  proyectos backend) → sin paquetes vulnerables. Sin dependencias nuevas.
+- ✅ Autorización y exposición de datos: sin cambios — el fix no toca `GetNearbyMuralsQuery`,
+  `DiscoveryController` ni ningún endpoint.
+
+**Resultado:** 0 hallazgos Critical/High/Medium, 0 warnings. `gates.sast` se re-otorga.
