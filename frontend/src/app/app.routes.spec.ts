@@ -2,9 +2,9 @@ import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { Router, UrlTree, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { AuthClient } from './core/api-client/api-client.generated';
+import { AuthClient, DiscoveryClient } from './core/api-client/api-client.generated';
 import { SessionStore } from './features/auth/state/session.store';
-import { adminGuard, authGuard, routes } from './app.routes';
+import { adminGuard, authGuard, rootRedirectGuard, routes } from './app.routes';
 
 describe('authGuard', () => {
   let sessionStore: SessionStore;
@@ -119,5 +119,97 @@ describe('routes — /murals/new (protected)', () => {
 
     const router = TestBed.inject(Router);
     expect(router.url).toBe('/login');
+  });
+});
+
+describe('rootRedirectGuard', () => {
+  let sessionStore: SessionStore;
+  let router: Router;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [SessionStore],
+    });
+
+    sessionStore = TestBed.inject(SessionStore);
+    router = TestBed.inject(Router);
+  });
+
+  afterEach(() => {
+    sessionStorage.clear();
+  });
+
+  function runGuard() {
+    return TestBed.runInInjectionContext(() =>
+      rootRedirectGuard({} as never, { url: '/' } as never),
+    );
+  }
+
+  // Required test 1 (Block 8): sin sesión, / resuelve en /login — AC-08.
+  it('redirige a /login cuando no hay sesión activa', () => {
+    const result = runGuard();
+
+    expect(result).toBeInstanceOf(UrlTree);
+    expect(router.serializeUrl(result as UrlTree)).toBe('/login');
+  });
+
+  // Required test 2 (Block 8): con sesión, / resuelve en /discover — AC-09.
+  it('redirige a /discover cuando hay una sesión activa', () => {
+    sessionStore.setSession('token-abc', { username: 'ana' });
+
+    const result = runGuard();
+
+    expect(result).toBeInstanceOf(UrlTree);
+    expect(router.serializeUrl(result as UrlTree)).toBe('/discover');
+  });
+});
+
+// Required test 3 (Block 8): /discover es pública — no redirige a /login sin sesión, a diferencia
+// de /murals/new — AC-07.
+describe('routes — / y /discover (public exploration)', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        SessionStore,
+        provideRouter(routes),
+        provideHttpClient(),
+        AuthClient,
+        DiscoveryClient,
+      ],
+    });
+  });
+
+  afterEach(() => {
+    sessionStorage.clear();
+  });
+
+  it('redirige a /login al navegar a / sin sesión activa', async () => {
+    const harness = await RouterTestingHarness.create();
+
+    await harness.navigateByUrl('/');
+
+    const router = TestBed.inject(Router);
+    expect(router.url).toBe('/login');
+  });
+
+  it('redirige a /discover al navegar a / con sesión activa', async () => {
+    const sessionStore = TestBed.inject(SessionStore);
+    sessionStore.setSession('token-abc', { username: 'ana' });
+
+    const harness = await RouterTestingHarness.create();
+
+    await harness.navigateByUrl('/');
+
+    const router = TestBed.inject(Router);
+    expect(router.url).toBe('/discover');
+  });
+
+  it('permite navegar directo a /discover sin sesión activa, sin redirigir a /login', async () => {
+    const harness = await RouterTestingHarness.create();
+
+    await harness.navigateByUrl('/discover');
+
+    const router = TestBed.inject(Router);
+    expect(router.url).toBe('/discover');
   });
 });

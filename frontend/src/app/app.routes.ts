@@ -45,7 +45,35 @@ export const adminGuard: CanActivateFn = () => {
   return true;
 };
 
+/**
+ * Root route guard (FEAT-001d Block 8, AC-08/AC-09). The root `/` is a presentation decision, not
+ * an authorization one — no new authorization rule is introduced here, `authGuard`/`adminGuard`
+ * above are untouched. Implemented as a `CanActivateFn`, same shape as `authGuard`/`adminGuard`,
+ * instead of a resolver or a placeholder component: it is the pattern already established in this
+ * file for "read a `SessionStore` signal and redirect via `router.createUrlTree`", and it keeps `/`
+ * out of the bundle as an actual routed component (there is nothing to render — it always redirects
+ * before any component activates).
+ */
+export const rootRedirectGuard: CanActivateFn = () => {
+  const sessionStore = inject(SessionStore);
+  const router = inject(Router);
+
+  return router.createUrlTree([sessionStore.isAuthenticated() ? '/discover' : '/login']);
+};
+
 export const routes: Routes = [
+  {
+    // No component: `rootRedirectGuard` always returns a `UrlTree`, so nothing here ever
+    // activates/renders — it only exists to run the guard and redirect (AC-08/AC-09).
+    path: '',
+    pathMatch: 'full',
+    canActivate: [rootRedirectGuard],
+    // Required by Angular's route validator (NG04014): a route needs one of
+    // component/loadComponent/redirectTo/children/loadChildren. This route never renders
+    // anything (the guard always returns a UrlTree), so `children: []` is the correct minimal
+    // choice — not redundant, despite looking like it.
+    children: [],
+  },
   {
     path: 'login',
     loadComponent: () =>
@@ -55,6 +83,15 @@ export const routes: Routes = [
     path: 'register',
     loadComponent: () =>
       import('./features/auth/ui/register-form.component').then((m) => m.RegisterFormComponent),
+  },
+  {
+    path: 'discover',
+    // Public, deliberately without authGuard (AC-07, FR-07): the same component the root redirects
+    // to when there IS a session, but also reachable directly without one.
+    loadComponent: () =>
+      import('./features/discovery/ui/discovery-page.component').then(
+        (m) => m.DiscoveryPageComponent,
+      ),
   },
   {
     path: 'murals/new',
