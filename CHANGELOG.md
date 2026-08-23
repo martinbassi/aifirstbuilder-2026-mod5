@@ -30,6 +30,16 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   login, únicamente para gatear la UI — la autorización real siempre se re-verifica server-side.
   Corrige además un `NullInjectorError` preexistente de FEAT-001b (`MuralsClient` nunca se había
   registrado en el injector de Angular).
+- **FEAT-001d — Descubrir murales cercanos**: nuevo endpoint público
+  `GET /api/discovery/nearby-murals` (`[AllowAnonymous]`, rate limit específico de 20 req/min por
+  IP) que devuelve los murales `Published` dentro de un radio (default 5 km) ordenados por
+  distancia ascendente, calculada con Haversine sobre un bounding box acotado en SQL vía un índice
+  compuesto (`IX_Murals_Status_Latitude_Longitude`, ver ADR-005: Haversine en memoria en vez de
+  `geography`/NetTopologySuite, decisión para el volumen de un MVP). Feature Angular `discovery/`
+  (mapa Leaflet con un marcador por mural, lista con detalle inline al seleccionar, sin necesidad de
+  sesión) accesible en `/discover`; ruteo raíz redirige a `/discover` con sesión activa o a `/login`
+  sin ella. `GeolocationService` compartido, extraído de `create-mural-form` para reutilizarse en el
+  descubrimiento.
 
 ### Fixed
 
