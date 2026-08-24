@@ -4,9 +4,9 @@ import { Router, RouterLink } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
+import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { ApiError } from '../../../core/http/api-error';
-import { LogoComponent } from '../../../shared/logo/logo.component';
 import { AuthService } from '../data/auth.service';
 import { AuthCardComponent } from './auth-card/auth-card.component';
 
@@ -21,14 +21,15 @@ interface LoginFormControls {
   imports: [
     ReactiveFormsModule,
     RouterLink,
-    LogoComponent,
     AuthCardComponent,
     NzAlertModule,
     NzButtonModule,
     NzFormModule,
+    NzIconModule,
     NzInputModule,
   ],
   templateUrl: './login-form.component.html',
+  styleUrls: ['./auth-form.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoginFormComponent {
@@ -43,6 +44,9 @@ export class LoginFormComponent {
   readonly submitting = signal(false);
   /** Shown verbatim — never distinguished between "wrong user" and "wrong password" (FR-05/AC-05). */
   readonly errorMessage = signal<string | null>(null);
+
+  loginWithGoogle(): void {
+  }
 
   submit(): void {
     if (this.form.invalid || this.submitting()) {

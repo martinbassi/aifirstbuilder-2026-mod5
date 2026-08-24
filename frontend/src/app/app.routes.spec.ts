@@ -2,6 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { Router, UrlTree, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { GoogleOutline } from '@ant-design/icons-angular/icons';
+import { provideNzIcons } from 'ng-zorro-antd/icon';
 import { AuthClient, DiscoveryClient } from './core/api-client/api-client.generated';
 import { SessionStore } from './features/auth/state/session.store';
 import { adminGuard, authGuard, rootRedirectGuard, routes } from './app.routes';
@@ -104,7 +106,16 @@ describe('routes — /murals/new (protected)', () => {
       // provideHttpClient: the redirect target (/login) lazy-loads the real LoginFormComponent,
       // which injects AuthService -> AuthClient (needs an HttpClient to construct, even though no
       // request is actually made in this test).
-      providers: [SessionStore, provideRouter(routes), provideHttpClient(), AuthClient],
+      // provideNzIcons([GoogleOutline]): LoginFormComponent's NzIconDirective (Google icon) needs
+      // the icon registered, or it throws an uncaught IconNotFoundError (same registration as
+      // provideNzIcons in app.config.ts, Block 8).
+      providers: [
+        SessionStore,
+        provideRouter(routes),
+        provideHttpClient(),
+        AuthClient,
+        provideNzIcons([GoogleOutline]),
+      ],
     });
   });
 
@@ -175,6 +186,7 @@ describe('routes — / y /discover (public exploration)', () => {
         provideHttpClient(),
         AuthClient,
         DiscoveryClient,
+        provideNzIcons([GoogleOutline]),
       ],
     });
   });

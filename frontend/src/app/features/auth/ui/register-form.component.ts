@@ -10,9 +10,9 @@ import { Router, RouterLink } from '@angular/router';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
+import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { ApiError } from '../../../core/http/api-error';
-import { LogoComponent } from '../../../shared/logo/logo.component';
 import { AuthService } from '../data/auth.service';
 import { AuthCardComponent } from './auth-card/auth-card.component';
 
@@ -40,14 +40,15 @@ function passwordComplexityValidator(control: FormControl<string>): ValidationEr
   imports: [
     ReactiveFormsModule,
     RouterLink,
-    LogoComponent,
     AuthCardComponent,
     NzAlertModule,
     NzButtonModule,
     NzFormModule,
+    NzIconModule,
     NzInputModule,
   ],
   templateUrl: './register-form.component.html',
+  styleUrls: ['./auth-form.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RegisterFormComponent {
@@ -77,6 +78,9 @@ export class RegisterFormComponent {
   readonly submitting = signal(false);
   /** Shown verbatim — never distinguished by field, so it doesn't repeat FR-02's leak client-side. */
   readonly errorMessage = signal<string | null>(null);
+
+  registerWithGoogle(): void {
+  }
 
   submit(): void {
     if (this.form.invalid || this.submitting()) {
