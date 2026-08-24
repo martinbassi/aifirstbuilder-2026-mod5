@@ -5,73 +5,82 @@
 | Ticket | FEAT-003 |
 | Tracker | none |
 | Date | 2026-08-23 |
-| PRD loops | 0 |
+| PRD loops | 1 |
 
 ## Context and Problem
 
 FEAT-002 agregó el logo compartido a `/login` y `/register`, pero ambas pantallas heredan un layout
 sin estilo propio: el bloque logo+formulario queda pegado arriba a la izquierda de una página en
 blanco, sin centrar ni agrupar visualmente — hallazgo detectado durante la verificación visual de
-FEAT-002. El usuario pidió ir más allá de solo centrar: agrupar el logo y los inputs dentro de una
-card centrada, para que las pantallas de entrada a la aplicación se vean terminadas en vez de
-"toscas".
+FEAT-002. El usuario pidió ir más allá de solo centrar: darle a las pantallas de entrada a la
+aplicación una identidad visual terminada en vez de "toscas".
+
+**Loop de PRD (2026-08-24):** la implementación se ejecutó siguiendo la línea original ("card
+centrada chica con `nz-card` sobre fondo liso"), pero la dirección visual real que se construyó y
+aprobó fue distinta: un layout split-screen con un panel de marca a pantalla completa. Este loop
+reescribe Goals/FR/NFR/AC/Out of Scope/Risks/Dependencies para que el PRD describa lo que
+efectivamente se construyó, en vez de lo que se planeó originalmente.
 
 ## Goals
 
-- Centrar horizontal y verticalmente el bloque de login/register en la pantalla.
-- Agrupar logo + formulario dentro de una card visual (borde/sombra/padding), no un bloque suelto.
-- Aplicar el mismo tratamiento a `/login` y `/register` (misma card, mismo layout).
-- Reusar el componente `nz-card` de ng-zorro (ya en el stack, sin dependencia nueva) y las variables
-  de tema ya definidas en FEAT-002 (`--ant-primary-color`, `--app-color-secondary`), sin introducir
-  colores nuevos hardcodeados.
+- Dividir la pantalla en dos paneles: uno de marca (mensaje + imagen institucional, color primario
+  de la paleta de FEAT-002) y uno de formulario (login o registro), en vez de una card chica sobre
+  fondo blanco.
+- Aplicar el mismo tratamiento a `/login` y `/register` (mismos paneles, mismos anchos, mismos
+  breakpoints).
+- Colapsar a un único panel (el de formulario, a ancho completo) en viewports angostos, para no
+  perder usabilidad en mobile.
+- Reusar la paleta de color ya definida en FEAT-002 (coral primario / navy secundario) para el panel
+  de marca.
 
 ## Functional Requirements
 
-- FR-01: El sistema DEBE mostrar, en `/login`, una card centrada horizontal y verticalmente en el
-  viewport, conteniendo el logo y el formulario de login.
-- FR-02: El sistema DEBE mostrar, en `/register`, una card centrada horizontal y verticalmente en el
-  viewport, conteniendo el logo y el formulario de registro.
-- FR-03: El logo DEBE ubicarse dentro de la card, por encima de los campos del formulario.
-- FR-04: El fondo de la pantalla, fuera de la card, DEBE ser blanco/neutro liso (sin degradado ni
-  color sólido de marca).
-- FR-05: La card DEBE usar el componente `nz-card` de ng-zorro (ya instalado), sin agregar una
-  dependencia nueva.
-- FR-06: La card DEBE mantenerse completamente visible sin overflow horizontal en viewports de al
-  menos 320px de ancho (mobile mínimo razonable).
-- FR-07: `/login` y `/register` DEBEN compartir el mismo layout de card (mismo ancho máximo, mismo
-  padding, mismo tratamiento de logo) — no dos implementaciones visualmente distintas.
+- FR-01: El sistema DEBE mostrar, en `/login`, un layout de dos paneles (panel de marca a la
+  izquierda, panel de formulario a la derecha) en viewports de al menos 900px de ancho.
+- FR-02: El sistema DEBE mostrar, en `/register`, el mismo layout de dos paneles que `/login`.
+- FR-03: El panel de marca DEBE mostrar un wordmark de texto ("Paretto."), un mensaje de marca y una
+  imagen de fondo institucional, con el color primario de la paleta definida en FEAT-002.
+- FR-04: El panel de formulario DEBE centrar su contenido (encabezado + formulario) verticalmente,
+  con un ancho máximo de 420px.
+- FR-05: Por debajo de un ancho de viewport de 700px, el panel de marca DEBE ocultarse por completo
+  y el panel de formulario DEBE ocupar el 100% del ancho disponible.
+- FR-06: `/login` y `/register` DEBEN compartir el mismo layout estructural (mismos anchos de panel,
+  mismos breakpoints, mismo tratamiento visual) — solo cambia el contenido del formulario.
+- FR-07: Ambas pantallas DEBEN incluir un botón "Continuar con Google", visualmente presente pero sin
+  ninguna acción asociada en este ticket (no dispara autenticación real).
 
 ## Non-Functional Requirements
 
-- NFR-01: El ancho de la card DEBE estar acotado a un máximo de 420px, para mantener legibilidad en
-  viewports grandes (desktop) sin que el formulario se estire de borde a borde.
+- NFR-01: El ancho del contenido del panel de formulario DEBE estar acotado a un máximo de 420px en
+  viewports de al menos 700px de ancho, para mantener legibilidad sin estirarse de borde a borde.
 
 ## Acceptance Criteria
 
-- AC-01: WHEN el usuario navega a `/login`, THE sistema SHALL mostrar una card centrada horizontal y
-  verticalmente que contiene el logo y el formulario de login. (FR-01)
-- AC-02: WHEN el usuario navega a `/register`, THE sistema SHALL mostrar una card centrada horizontal
-  y verticalmente que contiene el logo y el formulario de registro, con el mismo tratamiento visual
-  que `/login`. (FR-02)
-- AC-03: WHEN la card se renderiza, THE sistema SHALL ubicar el logo por encima de los campos del
-  formulario, dentro de la misma card. (FR-03)
-- AC-04: WHEN las pantallas `/login`/`/register` se renderizan, THE sistema SHALL mostrar un fondo
-  blanco/neutro liso fuera de la card, sin degradado ni color sólido de marca. (FR-04)
-- AC-05: WHEN la card se implementa, THE sistema SHALL usar el componente `nz-card` de ng-zorro como
-  contenedor, sin agregar una dependencia nueva. (FR-05)
-- AC-06: WHILE el viewport tiene un ancho de al menos 320px, THE sistema SHALL mantener la card
-  completamente visible, sin overflow horizontal ni contenido cortado. (FR-06)
-- AC-07: IF el viewport es más angosto que el ancho máximo de la card (420px), THEN THE sistema SHALL
-  adaptar el ancho de la card al viewport disponible (no desbordar ni forzar scroll horizontal).
-  (FR-06)
-- AC-08: WHEN se compara el layout de `/login` contra `/register`, THE sistema SHALL usar el mismo
-  ancho máximo de card y el mismo padding en ambas pantallas. (FR-07)
+- AC-01: WHEN el usuario navega a `/login` en un viewport de al menos 900px de ancho, THE sistema
+  SHALL mostrar el layout de dos paneles (marca + formulario). (FR-01)
+- AC-02: WHEN el usuario navega a `/register` en un viewport de al menos 900px de ancho, THE sistema
+  SHALL mostrar el mismo layout de dos paneles que `/login`. (FR-02)
+- AC-03: WHEN el panel de marca se renderiza, THE sistema SHALL mostrar el wordmark "Paretto.", el
+  mensaje de marca y la imagen de fondo, con el color primario de la paleta de FEAT-002. (FR-03)
+- AC-04: WHEN el panel de formulario se renderiza, THE sistema SHALL centrar su contenido
+  verticalmente y limitar su ancho a un máximo de 420px. (FR-04)
+- AC-05: IF el viewport es más angosto que 700px, THEN THE sistema SHALL ocultar completamente el
+  panel de marca y expandir el panel de formulario al 100% del ancho disponible. (FR-05)
+- AC-06: WHEN se compara el layout de `/login` contra `/register`, THE sistema SHALL usar los mismos
+  anchos de panel, los mismos breakpoints y el mismo tratamiento visual en ambas pantallas. (FR-06)
+- AC-07: WHEN el usuario ve el formulario de login o de registro, THE sistema SHALL mostrar un botón
+  "Continuar con Google" visible, sin que su interacción dispare ninguna request ni navegación en
+  este ticket. (FR-07)
 
 ## Out of Scope
 
+- Autenticación real vía Google (OAuth): el botón "Continuar con Google" es un placeholder visual sin
+  lógica asociada; su implementación funcional queda para un ticket aparte.
+- Reemplazar el wordmark de texto del panel de marca por el `LogoComponent` compartido de FEAT-002 —
+  es un tratamiento visual intencional y distinto al del resto de la app, específico de esta pantalla.
 - Corregir el contraste WCAG del botón primary (ticket de seguimiento aparte, ya identificado).
 - Rediseñar `/discover` o `/moderation` — este ticket es exclusivo de login/register.
-- Animaciones o transiciones de entrada/salida de la card.
+- Animaciones o transiciones de entrada/salida de los paneles.
 - Modo oscuro / soporte de temas alternativos.
 - Cambiar la lógica de validación de los formularios (mensajes de error, reglas de password, etc.) —
   solo layout/estilo visual.
@@ -80,17 +89,20 @@ card centrada, para que las pantallas de entrada a la aplicación se vean termin
 
 ## Risks and Mitigations
 
-- **Riesgo:** los estilos por defecto de `nz-card` podrían no heredar la tipografía Quicksand o los
-  colores de marca definidos en `styles.css` (FEAT-002), si `nz-card` aplica sus propios estilos
-  aislados. **Mitigación:** verificar en CODE que la card renderiza con la fuente y paleta ya
-  definidas globalmente (sin overrides de color hardcodeados dentro del componente); si `nz-card`
-  necesita ajuste, hacerlo vía las variables CSS ya existentes, no con colores nuevos.
-- **Riesgo:** achicar el ancho de la card en mobile podría cortar el logo (256×256 render en un
-  espacio angosto). **Mitigación:** el logo ya se muestra hoy sin controlar su tamaño en CSS (spec de
-  FEAT-002 no fijó dimensiones) — este ticket puede necesitar acotar el tamaño del logo dentro de la
-  card responsivamente; se resuelve en CODE, no cambia el contrato de `LogoComponent`.
+- **Riesgo:** el color del panel de marca está hardcodeado en hex (`#ff6e48`, `#0d2348`) en vez de
+  referenciar las variables de tema (`--ant-primary-color`, `--app-color-secondary`) definidas en
+  FEAT-002, con riesgo de desincronización si la paleta cambia más adelante. **Mitigación:** en CODE,
+  reemplazar los hex hardcodeados por las variables CSS existentes donde el valor coincida.
+- **Riesgo:** el archivo de estilos del panel de marca tiene una regla `.brand-panel` duplicada (una
+  con `#55c1b5`, otra con `#ff6e48` al final del archivo); la segunda gana por cascada, pero es una
+  fuente de confusión y deuda técnica. **Mitigación:** consolidar en una sola regla en CODE.
+- **Riesgo:** el import de `LogoComponent` en `login-form.component.ts`/`register-form.component.ts`
+  queda sin uso en el template (código muerto), producto de la decisión de usar wordmark de texto en
+  su lugar. **Mitigación:** eliminar el import no usado en CODE.
 
 ## Dependencies
 
-- FEAT-002 (identidad visual: Quicksand, paleta, `LogoComponent`) — ya mergeado a `main`. Este ticket
-  reutiliza `LogoComponent` y las variables de tema que introdujo, sin modificarlos.
+- FEAT-002 (identidad visual: Quicksand, paleta coral/navy) — ya mergeado a `main`. Este ticket
+  reutiliza la paleta de color del panel de marca (ver Riesgos sobre los valores hardcodeados), pero
+  **no** reutiliza `LogoComponent` en el panel de marca — decisión explícita de usar un wordmark de
+  texto para esta pantalla (ver Out of Scope).
