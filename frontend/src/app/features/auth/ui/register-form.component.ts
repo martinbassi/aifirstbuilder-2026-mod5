@@ -79,8 +79,9 @@ export class RegisterFormComponent {
   /** Shown verbatim — never distinguished by field, so it doesn't repeat FR-02's leak client-side. */
   readonly errorMessage = signal<string | null>(null);
 
-  registerWithGoogle(): void {
-  }
+  /** Visual placeholder — no OAuth logic (PRD Out of Scope: real Google auth is a separate ticket). */
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  registerWithGoogle(): void {}
 
   submit(): void {
     if (this.form.invalid || this.submitting()) {

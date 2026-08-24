@@ -45,8 +45,9 @@ export class LoginFormComponent {
   /** Shown verbatim — never distinguished between "wrong user" and "wrong password" (FR-05/AC-05). */
   readonly errorMessage = signal<string | null>(null);
 
-  loginWithGoogle(): void {
-  }
+  /** Visual placeholder — no OAuth logic (PRD Out of Scope: real Google auth is a separate ticket). */
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  loginWithGoogle(): void {}
 
   submit(): void {
     if (this.form.invalid || this.submitting()) {
