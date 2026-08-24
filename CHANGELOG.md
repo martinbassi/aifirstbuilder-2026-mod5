@@ -49,6 +49,12 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   pipeline de `ng test`) que verifica por texto plano que la tipografía y las variables de color se
   aplican correctamente — resuelve una limitación real de Vitest/Angular (el CSS global no se
   inyecta en el DOM del test runner).
+- **FEAT-003 — Rediseño visual de login/register**: `AuthCardComponent` reconstruido como
+  split-screen (panel de marca con wordmark, mensaje e imagen de fondo, a la izquierda; panel de
+  formulario a la derecha, ancho máximo ~410px), que colapsa a un solo panel de formulario a 100% de
+  ancho por debajo de 700px. `login-form` y `register-form` comparten un único `auth-form.css`
+  consolidado. Corrige un bug silencioso donde el ícono de Google no se renderizaba (faltaba
+  `NzIconModule` en ambos formularios) y elimina imports muertos (`NzCardModule`, `LogoComponent`).
 
 ### Fixed
 
