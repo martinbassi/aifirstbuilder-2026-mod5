@@ -64,6 +64,10 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
 
   private map: L.Map | null = null;
   private markers: L.Marker[] = [];
+  /** Último centro efectivamente aplicado al mapa vía `applyCenter()` — guarda anti-loop del
+   * `effect()` de abajo: sin esto, cada emisión de `center()` (incluso con el mismo valor)
+   * dispararía un `setView` nuevo. */
+  private lastAppliedCenter: MapCenter | null = null;
 
   constructor() {
     // Re-renderiza los marcadores cuando `items` cambia DESPUÉS del render inicial (p. ej.
@@ -76,14 +80,40 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
         this.renderMarkers(items);
       }
     });
+
+    // Recentra el mapa cuando `center()` cambia DESPUÉS del render inicial (geolocalización
+    // asíncrona o coordenadas manuales). Ignora `null` (el visitante puede perder la ubicación en
+    // cualquier momento del ciclo de vida, `center()` ya lo permite) y valores iguales al último
+    // aplicado — la guarda anti-loop que documenta el spec.
+    effect(() => {
+      const center = this.center();
+      if (!center || !this.map) {
+        return;
+      }
+      if (
+        this.lastAppliedCenter &&
+        this.lastAppliedCenter.latitude === center.latitude &&
+        this.lastAppliedCenter.longitude === center.longitude
+      ) {
+        return;
+      }
+      this.applyCenter(center);
+    });
   }
 
   ngAfterViewInit(): void {
-    this.map = L.map(this.mapContainer().nativeElement).setView(
-      this.toLatLng(this.resolveCenter()),
-      DEFAULT_ZOOM,
-    );
+    // Zoom fijo pasado como opción (no via `setView`, eso lo hace `applyCenter()` a continuación):
+    // `applyCenter()` depende de `this.map.getZoom()` ya devolviendo un valor válido, y Leaflet solo
+    // lo inicializa desde `options.zoom` — no requiere `options.center` para hacerlo.
+    this.map = L.map(this.mapContainer().nativeElement, { zoom: DEFAULT_ZOOM });
+    // `tileLayer.addTo()` corre ANTES de tener un centro real (`applyCenter()` todavía no se llamó).
+    // Es intencional y seguro: `Map.addLayer()` difiere el `onAdd()` del layer con `whenReady()`
+    // hasta el evento `'load'` del mapa cuando este todavía no está cargado, así que `GridLayer`
+    // nunca intenta leer `getCenter()` sobre un mapa sin centro/zoom completos (eso sí lanzaría).
+    // El orden real que importa es `applyCenter()` antes del primer render visible, no antes de este
+    // `addTo`. No reordenar sin volver a confirmar ese comportamiento de Leaflet.
     L.tileLayer(TILE_LAYER_URL, { attribution: TILE_LAYER_ATTRIBUTION }).addTo(this.map);
+    this.applyCenter(this.resolveCenter());
     this.renderMarkers(this.items());
   }
 
@@ -111,6 +141,17 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
 
   private toLatLng(point: MapCenter): L.LatLngExpression {
     return [point.latitude, point.longitude];
+  }
+
+  /** Única vía por la que el componente mueve el mapa programáticamente (recentrado inicial y
+   * reactivo ante cambios de `center()`). Requiere que `this.map` ya exista con un zoom válido —
+   * `ngAfterViewInit()` lo garantiza al construir el mapa con `{ zoom: DEFAULT_ZOOM }`. */
+  private applyCenter(center: MapCenter): void {
+    if (!this.map) {
+      return;
+    }
+    this.map.setView(this.toLatLng(center), this.map.getZoom());
+    this.lastAppliedCenter = center;
   }
 
   private renderMarkers(items: NearbyMuralItemResponse[]): void {

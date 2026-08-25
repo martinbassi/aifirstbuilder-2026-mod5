@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import * as L from 'leaflet';
 import { NearbyMuralItemResponse } from '../../../core/api-client/api-client.generated';
-import { DiscoveryMapComponent } from './discovery-map.component';
+import { DiscoveryMapComponent, MapCenter } from './discovery-map.component';
 
 function buildItem(overrides: Partial<NearbyMuralItemResponse> = {}): NearbyMuralItemResponse {
   return new NearbyMuralItemResponse({
@@ -108,5 +108,87 @@ describe('DiscoveryMapComponent', () => {
     const center = map.getCenter();
     expect(center.lat).toBeCloseTo(-34.90583, 5);
     expect(center.lng).toBeCloseTo(-56.191388, 5);
+  });
+
+  // Block 1 — recentrado reactivo del mapa (spec-FEAT-005).
+
+  // Required test: dado el mapa ya renderizado con el centro de fallback, cuando el input `center`
+  // cambia a un valor nuevo, `map.getCenter()` refleja el nuevo centro — valida AC-01.
+  it('recentra el mapa cuando el input center cambia a un valor nuevo (AC-01)', () => {
+    fixture.detectChanges();
+
+    const newCenter: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    fixture.componentRef.setInput('center', newCenter);
+    fixture.detectChanges();
+
+    const map = (component as unknown as { map: L.Map }).map;
+    const center = map.getCenter();
+    expect(center.lat).toBeCloseTo(newCenter.latitude, 5);
+    expect(center.lng).toBeCloseTo(newCenter.longitude, 5);
+  });
+
+  // Required test: el mismo comportamiento se dispara sin importar si el cambio de `center()` viene
+  // de geolocalización o de un segundo cambio posterior (simula el caso de coordenadas manuales) —
+  // valida AC-02.
+  it('recentra el mapa también ante un segundo cambio de center, ej. coordenadas manuales (AC-02)', () => {
+    fixture.detectChanges();
+
+    const geolocationCenter: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    fixture.componentRef.setInput('center', geolocationCenter);
+    fixture.detectChanges();
+
+    const manualCenter: MapCenter = { latitude: -33.0, longitude: -57.0 };
+    fixture.componentRef.setInput('center', manualCenter);
+    fixture.detectChanges();
+
+    const map = (component as unknown as { map: L.Map }).map;
+    const center = map.getCenter();
+    expect(center.lat).toBeCloseTo(manualCenter.latitude, 5);
+    expect(center.lng).toBeCloseTo(manualCenter.longitude, 5);
+  });
+
+  // Required test: si `center()` se vuelve a fijar con el mismo valor que ya tiene aplicado,
+  // `map.setView` no se vuelve a invocar (test de regresión anti-loop). Primero confirma que
+  // `setView` SÍ se dispara ante un cambio real (si no, el segundo assert sería un falso positivo:
+  // pasaría igual aunque no hubiera reactividad ninguna).
+  it('no vuelve a llamar map.setView si center() se fija con el mismo valor ya aplicado (anti-loop)', () => {
+    fixture.detectChanges();
+
+    const map = (component as unknown as { map: L.Map }).map;
+    const setViewSpy = vi.spyOn(map, 'setView');
+
+    const center: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    fixture.componentRef.setInput('center', center);
+    fixture.detectChanges();
+    expect(setViewSpy).toHaveBeenCalledTimes(1);
+
+    fixture.componentRef.setInput('center', { latitude: -34.6, longitude: -58.4 });
+    fixture.detectChanges();
+    expect(setViewSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // Required test: si `center()` cambia a `null` después de tener un valor, el `effect()` no llama
+  // `applyCenter()` ni lanza — valida el caso documentado en "Error handling". También confirma
+  // primero que `setView` SÍ se dispara ante el cambio previo, por la misma razón que el test
+  // anterior.
+  it('no llama applyCenter ni lanza cuando center() vuelve a null después de tener un valor', () => {
+    fixture.detectChanges();
+
+    const map = (component as unknown as { map: L.Map }).map;
+    const setViewSpy = vi.spyOn(map, 'setView');
+
+    const center: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    fixture.componentRef.setInput('center', center);
+    fixture.detectChanges();
+    expect(setViewSpy).toHaveBeenCalledTimes(1);
+
+    expect(() => {
+      fixture.componentRef.setInput('center', null);
+      fixture.detectChanges();
+    }).not.toThrow();
+
+    expect(setViewSpy).toHaveBeenCalledTimes(1);
+    expect(map.getCenter().lat).toBeCloseTo(center.latitude, 5);
+    expect(map.getCenter().lng).toBeCloseTo(center.longitude, 5);
   });
 });
