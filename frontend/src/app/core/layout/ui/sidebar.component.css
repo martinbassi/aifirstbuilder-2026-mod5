@@ -8,9 +8,9 @@
 }
 
 .sidebar-header {
-  display: flex;
+  display: block;
   align-items: center;
-  justify-content: space-between;
+  margin:auto;
   margin-bottom: 1.5rem;
 }
 

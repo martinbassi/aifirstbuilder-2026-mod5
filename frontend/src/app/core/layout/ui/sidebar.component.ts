@@ -44,8 +44,4 @@ export class SidebarComponent {
       },
     });
   }
-
-  toggle(): void {
-    this.layoutStore.toggle();
-  }
 }

@@ -1,16 +1,6 @@
 <aside class="sidebar" [class.collapsed]="layoutStore.collapsed()">
   <div class="sidebar-header">
     <app-logo />
-
-    <button
-      type="button"
-      class="sidebar-toggle"
-      data-testid="sidebar-toggle"
-      [attr.aria-label]="layoutStore.collapsed() ? 'Expandir menú' : 'Contraer menú'"
-      (click)="toggle()"
-    >
-      <span aria-hidden="true">{{ layoutStore.collapsed() ? '»' : '«' }}</span>
-    </button>
   </div>
 
   <nav class="sidebar-menu">
