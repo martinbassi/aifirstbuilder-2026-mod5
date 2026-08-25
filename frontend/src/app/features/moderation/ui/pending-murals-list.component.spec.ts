@@ -62,6 +62,21 @@ describe('PendingMuralsListComponent', () => {
     expect(item.textContent).toContain('-58.4');
   });
 
+  // Regression test (FIX-002, RCA causa raíz #4 — mismo defecto que en discovery-list, detectado
+  // por el impact scan de PLAN): sin restricción de tamaño, una foto a resolución nativa desborda
+  // el layout de la pantalla de moderación.
+  it('restringe el ancho máximo de la foto del mural pendiente (FIX-002)', () => {
+    moderationService.getPending.mockReturnValue(of(buildPage()));
+
+    const fixture = TestBed.createComponent(PendingMuralsListComponent);
+    fixture.detectChanges();
+
+    const photo: HTMLImageElement = fixture.nativeElement.querySelector(
+      '[data-testid="mural-photo"]',
+    );
+    expect(photo.style.maxWidth).toBe('300px');
+  });
+
   // Required test: aprobar un ítem lo remueve de la lista tras una respuesta exitosa (AC-03).
   it('remueve el ítem de la lista al aprobarlo exitosamente', () => {
     moderationService.getPending.mockReturnValue(of(buildPage()));

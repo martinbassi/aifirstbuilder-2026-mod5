@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import * as L from 'leaflet';
 import { NearbyMuralItemResponse } from '../../../core/api-client/api-client.generated';
 import { DiscoveryMapComponent } from './discovery-map.component';
 
@@ -79,5 +80,33 @@ describe('DiscoveryMapComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.leaflet-marker-icon').length).toBe(1);
+  });
+
+  // Regression test (FIX-002, RCA causa raíz #1): Leaflet resuelve los íconos por defecto
+  // inspeccionando la URL del propio script del bundle, algo que rompe con esbuild (Angular 21) y
+  // deja los marcadores sin ícono visible (404). Sin el override de `L.Icon.Default.mergeOptions`
+  // en la carga del módulo, el `src` del marcador apuntaría a la URL rota de Leaflet en vez de a
+  // los assets propios del proyecto.
+  it('los marcadores usan los íconos propios del proyecto, no los rotos por defecto de Leaflet (FIX-002)', () => {
+    fixture.componentRef.setInput('items', [buildItem()]);
+    fixture.detectChanges();
+
+    const markerIcon = fixture.nativeElement.querySelector(
+      '.leaflet-marker-icon',
+    ) as HTMLImageElement;
+    expect(markerIcon.src).toContain('images/leaflet/marker-icon.png');
+  });
+
+  // Regression test (FIX-002, RCA causa raíz #2): sin `center` ni `items` con coordenadas,
+  // `resolveCenter()` cae a `FALLBACK_CENTER`. Antes del fix ese valor era `{0, 0}` ("null
+  // island"); el mapa debe abrir centrado en Montevideo en su lugar.
+  it('centra el mapa en Montevideo cuando no hay center ni items con ubicación (FIX-002)', () => {
+    fixture.componentRef.setInput('items', []);
+    fixture.detectChanges();
+
+    const map = (component as unknown as { map: L.Map }).map;
+    const center = map.getCenter();
+    expect(center.lat).toBeCloseTo(-34.90583, 5);
+    expect(center.lng).toBeCloseTo(-56.191388, 5);
   });
 });

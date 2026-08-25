@@ -13,7 +13,7 @@
 
         @if (selectedItem()?.id === item.id) {
           <div data-testid="item-detail">
-            <img [src]="item.photoUrl" alt="Foto del mural" data-testid="item-photo" />
+            <img style="max-width: 300px;" [src]="item.photoUrl" alt="Foto del mural" data-testid="item-photo" />
             <p data-testid="item-created-at">{{ item.createdAt }}</p>
             <p data-testid="item-location">{{ item.latitude }}, {{ item.longitude }}</p>
           </div>

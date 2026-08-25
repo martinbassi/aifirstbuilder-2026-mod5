@@ -66,3 +66,10 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   `AddCors`/`UseCors`, bloqueando toda llamada del frontend (`http://localhost:4200`) a la API
   (`https://localhost:7126`) al correr ambos por separado. Policy `DevelopmentCors` gateada por
   `IsDevelopment()`, sin efecto en producción.
+- **FIX-002**: corregidos 4 defectos que hacían inutilizable `/discover` en local — marcadores de
+  Leaflet invisibles (resolución de íconos por defecto incompatible con el bundler de Angular),
+  mapa centrado en `(0,0)` sin ubicación (ahora Montevideo), fotos de murales bloqueadas por la CSP
+  contra el emulador local de Azure Storage (Azurite), y foto de detalle sin límite de tamaño
+  (mismo defecto corregido también en la pantalla de moderación). La CSP relajada para el storage
+  local queda acotada a la configuración `development` de Angular (`index.development.html`, vía
+  override de `index` en `angular.json`) — nunca llega al build de producción.
