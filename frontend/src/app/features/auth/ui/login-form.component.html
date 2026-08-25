@@ -1,30 +1,68 @@
-<app-logo />
+<app-auth-card>
+  <div class="auth-header">
+    <h2>¡Que bueno verte de nuevo!</h2>
 
-<form nz-form [formGroup]="form" (ngSubmit)="submit()">
-  @if (errorMessage(); as message) {
-    <nz-alert nzType="error" [nzMessage]="message" nzShowIcon data-testid="error-message" />
-  }
+    <p>Continua con Google o ingresa tus datos.</p>
+  </div>
 
-  <nz-form-item>
-    <nz-form-label nzFor="login-username" nzRequired>Usuario</nz-form-label>
-    <nz-form-control>
-      <input nz-input id="login-username" formControlName="username" autocomplete="username" />
-    </nz-form-control>
-  </nz-form-item>
+  <!-- GOOGLE -->
+  <button nz-button nzType="default" class="google-button" (click)="loginWithGoogle()">
+    <nz-icon nzType="google" nzTheme="outline" />
 
-  <nz-form-item>
-    <nz-form-label nzFor="login-password" nzRequired>Contraseña</nz-form-label>
-    <nz-form-control>
-      <input
-        nz-input
-        id="login-password"
-        type="password"
-        formControlName="password"
-        autocomplete="current-password"
-      />
-    </nz-form-control>
-  </nz-form-item>
+    <span>Ingresá con tu cuenta de Google</span>
+  </button>
 
-  <button nz-button nzType="primary" type="submit" [nzLoading]="submitting()">Ingresar</button>
-  <a routerLink="/register">Crear una cuenta</a>
-</form>
+  <div class="divider">
+    <span></span>
+    <small>O</small>
+    <span></span>
+  </div>
+
+  <!-- FORM -->
+  <form nz-form [formGroup]="form" (ngSubmit)="submit()" class="auth-form">
+    @if (errorMessage(); as message) {
+      <nz-alert nzType="error" [nzMessage]="message" nzShowIcon data-testid="error-message" />
+    }
+
+    <nz-form-item>
+      <nz-form-label nzFor="login-username" nzRequired>Usuario</nz-form-label>
+      <nz-form-control>
+        <input nz-input id="login-username" formControlName="username" autocomplete="username" />
+      </nz-form-control>
+    </nz-form-item>
+
+    <nz-form-item>
+      <nz-form-control>
+        <nz-form-label nzFor="login-password" nzRequired>Contraseña</nz-form-label>
+        <nz-input-password>
+          <input
+            nz-input
+            placeholder="ingresa tu contraseña"
+            id="login-password"
+            type="password"
+            formControlName="password"
+          />
+        </nz-input-password>
+      </nz-form-control>
+    </nz-form-item>
+
+    <div class="forgot-password">
+      <a href="#"> ¿Olvidaste tu contraseña? </a>
+    </div>
+    <button
+      nz-button
+      nzType="primary"
+      nzBlock
+      class="auth-submit-button"
+      type="submit"
+      [nzLoading]="submitting()"
+    >
+      Iniciar sesión
+    </button>
+
+    <div class="signup">
+      <span>¿No tenés una cuenta?</span>
+      <a routerLink="/register">Regístrate gratis</a>
+    </div>
+  </form>
+</app-auth-card>
