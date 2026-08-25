@@ -55,6 +55,13 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   ancho por debajo de 700px. `login-form` y `register-form` comparten un único `auth-form.css`
   consolidado. Corrige un bug silencioso donde el ícono de Google no se renderizaba (faltaba
   `NzIconModule` en ambos formularios) y elimina imports muertos (`NzCardModule`, `LogoComponent`).
+- **FEAT-004 — Sidebar de navegación global + navbar de contexto**: shell de navegación transversal
+  en `core/layout/` — sidebar colapsable (breakpoint 992px) con logo, ítems Descubrir/Cargar
+  mural/Moderación (este último condicional al rol `Administrator`), ruta activa resaltada y footer
+  sesión-vs-anónimo (username+logout / CTA login-register); navbar superior con el título de la
+  pantalla activa y un control de expandir/contraer compartido con el sidebar. Envuelve
+  `/discover`, `/murals/new` y `/moderation`; `/login`/`/register` quedan fuera. Reutiliza
+  `SessionStore`/`AuthService`/los guards existentes sin modificarlos.
 
 ### Fixed
 

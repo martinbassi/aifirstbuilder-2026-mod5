@@ -1,0 +1,61 @@
+<aside class="sidebar" [class.collapsed]="layoutStore.collapsed()">
+  <div class="sidebar-header">
+    <app-logo />
+  </div>
+
+  <nav class="sidebar-menu">
+    <a
+      routerLink="/discover"
+      routerLinkActive="active"
+      class="menu-item"
+      data-testid="menu-discover"
+    >
+      <nz-icon nzType="compass" nzTheme="outline" />
+      <span class="label">Descubrir</span>
+    </a>
+
+    <a
+      routerLink="/murals/new"
+      routerLinkActive="active"
+      class="menu-item"
+      data-testid="menu-upload"
+    >
+      <nz-icon nzType="cloud-upload" nzTheme="outline" />
+      <span class="label">Cargar mural</span>
+    </a>
+
+    @if (sessionStore.user()?.role === 'Administrator') {
+      <a
+        routerLink="/moderation"
+        routerLinkActive="active"
+        class="menu-item"
+        data-testid="menu-moderation"
+      >
+        <nz-icon nzType="safety-certificate" nzTheme="outline" />
+        <span class="label">Moderación</span>
+      </a>
+    }
+  </nav>
+
+  <div class="sidebar-footer">
+    @if (sessionStore.isAuthenticated()) {
+      <span class="label" data-testid="sidebar-username">{{ sessionStore.user()?.username }}</span>
+      <button
+        type="button"
+        class="logout-button"
+        data-testid="logout-button"
+        (click)="onLogout()"
+      >
+        <nz-icon nzType="logout" nzTheme="outline" />
+        <span class="label">Cerrar sesión</span>
+      </button>
+    } @else {
+      <a routerLink="/login" class="footer-link" data-testid="login-link">
+        <span class="label">Iniciar sesión</span>
+      </a>
+      <a routerLink="/register" class="footer-link" data-testid="register-link">
+        <span class="label">Registrarse</span>
+      </a>
+    }
+  </div>
+</aside>

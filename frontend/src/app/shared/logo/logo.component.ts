@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-
+import { inject } from '@angular/core';
+import { LayoutStore } from '../../core/layout/state/layout.store';
 /**
  * Purely presentational — no `@Input()`, no logic, no service calls (spec Block 3). Shared between
  * `auth/login` and `auth/register` (2 features), hence its place under `shared/`.
@@ -11,4 +12,6 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   templateUrl: './logo.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class LogoComponent {}
+export class LogoComponent {
+  readonly layoutStore = inject(LayoutStore);
+}

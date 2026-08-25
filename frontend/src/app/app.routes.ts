@@ -84,29 +84,44 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/auth/ui/register-form.component').then((m) => m.RegisterFormComponent),
   },
+  // Placed AFTER the root `path: ''` redirect entry above, deliberately — not because Angular
+  // Router requires this order to work (the impact scan for spec Block 5 confirmed Angular Router
+  // 21 backtracks and would resolve either order correctly), but so this file does not depend on
+  // that internal matcher detail: the redirect-only route (no component, always returns a UrlTree)
+  // reads unambiguously as "resolved first" this way.
   {
-    path: 'discover',
-    // Public, deliberately without authGuard (AC-07, FR-07): the same component the root redirects
-    // to when there IS a session, but also reachable directly without one.
+    path: '',
     loadComponent: () =>
-      import('./features/discovery/ui/discovery-page.component').then(
-        (m) => m.DiscoveryPageComponent,
-      ),
-  },
-  {
-    path: 'murals/new',
-    canActivate: [authGuard],
-    loadComponent: () =>
-      import('./features/murals/ui/create-mural-form.component').then(
-        (m) => m.CreateMuralFormComponent,
-      ),
-  },
-  {
-    path: 'moderation',
-    canActivate: [authGuard, adminGuard],
-    loadComponent: () =>
-      import('./features/moderation/ui/pending-murals-list.component').then(
-        (m) => m.PendingMuralsListComponent,
-      ),
+      import('./core/layout/ui/app-shell.component').then((m) => m.AppShellComponent),
+    children: [
+      {
+        path: 'discover',
+        // Public, deliberately without authGuard (AC-07, FR-07): the same component the root
+        // redirects to when there IS a session, but also reachable directly without one.
+        data: { title: 'Descubrir' },
+        loadComponent: () =>
+          import('./features/discovery/ui/discovery-page.component').then(
+            (m) => m.DiscoveryPageComponent,
+          ),
+      },
+      {
+        path: 'murals/new',
+        canActivate: [authGuard],
+        data: { title: 'Cargar mural' },
+        loadComponent: () =>
+          import('./features/murals/ui/create-mural-form.component').then(
+            (m) => m.CreateMuralFormComponent,
+          ),
+      },
+      {
+        path: 'moderation',
+        canActivate: [authGuard, adminGuard],
+        data: { title: 'Moderación' },
+        loadComponent: () =>
+          import('./features/moderation/ui/pending-murals-list.component').then(
+            (m) => m.PendingMuralsListComponent,
+          ),
+      },
+    ],
   },
 ];

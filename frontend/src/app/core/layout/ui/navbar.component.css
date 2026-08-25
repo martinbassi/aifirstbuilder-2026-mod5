@@ -1,0 +1,24 @@
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 1rem;
+  box-sizing: border-box;
+  color: #ffffff;
+}
+
+.navbar-title {
+  font-weight: 600;
+}
+
+.navbar-toggle {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

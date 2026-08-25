@@ -1,0 +1,42 @@
+/*
+ * Grid: sidebar (left column, full height) + navbar (top row of the right column) + routed content
+ * (rest of the right column). The sidebar column narrows when `.collapsed` is present — same
+ * `LayoutStore.collapsed()` state Block 2/Block 3 already read, applied here to the grid track
+ * instead of duplicating a width decision inside the sidebar itself.
+ */
+.shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 64px 1fr;
+  min-height: 100vh;
+}
+
+.shell.collapsed {
+  grid-template-columns: 72px 1fr;
+}
+
+.shell-content {
+  grid-column: 2;
+  grid-row: 2;
+  overflow: auto;
+}
+
+/*
+ * Distinct background colors between sidebar and navbar (FR-12), using the existing FEAT-002 tokens
+ * from styles.css — no new hex values. Neither `sidebar.component.css` nor `navbar.component.css`
+ * applied a background of their own (confirmed by reading both), so it is centralized here, on each
+ * child's host element within this component's own template scope (their host elements carry this
+ * component's style-scoping attribute, so this selector applies under view encapsulation even though
+ * their internal `<aside>`/`<header>` markup does not).
+ */
+app-sidebar {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  background: var(--app-color-secondary);
+}
+
+app-navbar {
+  grid-column: 2;
+  grid-row: 1;
+  background: var(--ant-primary-color);
+}
