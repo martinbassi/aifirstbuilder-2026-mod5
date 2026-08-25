@@ -62,6 +62,14 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   pantalla activa y un control de expandir/contraer compartido con el sidebar. Envuelve
   `/discover`, `/murals/new` y `/moderation`; `/login`/`/register` quedan fuera. Reutiliza
   `SessionStore`/`AuthService`/los guards existentes sin modificarlos.
+- **FEAT-005 — Geolocalización y refetch de murales por área en /discover**: el mapa ahora se
+  recentra reactivamente cuando la ubicación del visitante llega después del primer render
+  (geolocalización asíncrona o coordenadas manuales) — antes quedaba fijo en el fallback aunque el
+  permiso se concediera. Agrega un pin distintivo (`L.divIcon`, sin PNG nuevo) para "tu ubicación",
+  y un botón "Buscar en esta área" que aparece al mover/hacer zoom el mapa (con una guarda para no
+  confundir un movimiento del usuario con un recentrado programático) y vuelve a consultar murales
+  cercanos usando el centro actual del mapa, manteniendo los resultados previos visibles durante la
+  carga. Sin cambios de backend ni de contrato de API.
 
 ### Fixed
 
