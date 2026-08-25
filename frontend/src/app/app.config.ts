@@ -8,8 +8,16 @@ import { provideNzIcons } from 'ng-zorro-antd/icon';
 import {
   CheckCircleOutline,
   CloseCircleOutline,
+  CloudUploadOutline,
+  CompassOutline,
   ExclamationCircleOutline,
+  GoogleOutline,
   InfoCircleOutline,
+  LogoutOutline,
+  MenuFoldOutline,
+  MenuUnfoldOutline,
+  SafetyCertificateOutline,
+  UserOutline,
 } from '@ant-design/icons-angular/icons';
 import { registerLocaleData } from '@angular/common';
 import en from '@angular/common/locales/en';
@@ -50,6 +58,15 @@ export const appConfig: ApplicationConfig = {
       CloseCircleOutline,
       ExclamationCircleOutline,
       InfoCircleOutline,
+      GoogleOutline,
+      // Íconos del shell de navegación global (Block 2/3/4, FEAT-004).
+      CompassOutline,
+      CloudUploadOutline,
+      SafetyCertificateOutline,
+      LogoutOutline,
+      UserOutline,
+      MenuFoldOutline,
+      MenuUnfoldOutline,
     ]),
   ],
 };
