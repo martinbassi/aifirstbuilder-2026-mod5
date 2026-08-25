@@ -35,7 +35,9 @@ describe('DiscoveryMapComponent', () => {
     fixture.componentRef.setInput('items', items);
     fixture.detectChanges();
 
-    const markerIcons = fixture.nativeElement.querySelectorAll('.leaflet-marker-icon');
+    const markerIcons = fixture.nativeElement.querySelectorAll(
+      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+    );
     expect(markerIcons.length).toBe(items.length);
   });
 
@@ -43,7 +45,9 @@ describe('DiscoveryMapComponent', () => {
     fixture.componentRef.setInput('items', []);
     fixture.detectChanges();
 
-    const markerIcons = fixture.nativeElement.querySelectorAll('.leaflet-marker-icon');
+    const markerIcons = fixture.nativeElement.querySelectorAll(
+      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+    );
     expect(markerIcons.length).toBe(0);
   });
 
@@ -61,7 +65,9 @@ describe('DiscoveryMapComponent', () => {
       emitted = mural;
     });
 
-    const markerIcons = fixture.nativeElement.querySelectorAll('.leaflet-marker-icon');
+    const markerIcons = fixture.nativeElement.querySelectorAll(
+      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+    );
     const secondIcon = markerIcons[1] as HTMLElement;
     secondIcon.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
@@ -73,13 +79,19 @@ describe('DiscoveryMapComponent', () => {
   it('actualiza los marcadores cuando items cambia después del render inicial', () => {
     fixture.componentRef.setInput('items', []);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelectorAll('.leaflet-marker-icon').length).toBe(0);
+    expect(
+      fixture.nativeElement.querySelectorAll('.leaflet-marker-icon:not(.discovery-visitor-marker)')
+        .length,
+    ).toBe(0);
 
     const items = [buildItem({ id: 'mural-1' })];
     fixture.componentRef.setInput('items', items);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelectorAll('.leaflet-marker-icon').length).toBe(1);
+    expect(
+      fixture.nativeElement.querySelectorAll('.leaflet-marker-icon:not(.discovery-visitor-marker)')
+        .length,
+    ).toBe(1);
   });
 
   // Regression test (FIX-002, RCA causa raíz #1): Leaflet resuelve los íconos por defecto
@@ -92,7 +104,7 @@ describe('DiscoveryMapComponent', () => {
     fixture.detectChanges();
 
     const markerIcon = fixture.nativeElement.querySelector(
-      '.leaflet-marker-icon',
+      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
     ) as HTMLImageElement;
     expect(markerIcon.src).toContain('images/leaflet/marker-icon.png');
   });
@@ -190,5 +202,43 @@ describe('DiscoveryMapComponent', () => {
     expect(setViewSpy).toHaveBeenCalledTimes(1);
     expect(map.getCenter().lat).toBeCloseTo(center.latitude, 5);
     expect(map.getCenter().lng).toBeCloseTo(center.longitude, 5);
+  });
+
+  // Block 2 — pin distintivo de "tu ubicación" (spec-FEAT-005).
+
+  // Required test: cuando `center()` tiene un valor, aparece en el DOM un elemento con la clase
+  // `discovery-visitor-marker`, distinguible de `.leaflet-marker-icon` (los marcadores de murales)
+  // — valida AC-03.
+  it('renderiza un marcador distintivo del visitante cuando center() tiene un valor (AC-03)', () => {
+    const center: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    fixture.componentRef.setInput('center', center);
+    fixture.detectChanges();
+
+    const visitorMarkers = fixture.nativeElement.querySelectorAll('.discovery-visitor-marker');
+    expect(visitorMarkers.length).toBe(1);
+  });
+
+  // Required test: si `center()` cambia dos veces, sigue existiendo un único marcador de
+  // visitante (no se acumulan) y su posición refleja el último centro.
+  it('reposiciona el marcador de visitante en vez de duplicarlo cuando center() cambia dos veces', () => {
+    fixture.detectChanges();
+
+    const firstCenter: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    fixture.componentRef.setInput('center', firstCenter);
+    fixture.detectChanges();
+
+    const secondCenter: MapCenter = { latitude: -33.0, longitude: -57.0 };
+    fixture.componentRef.setInput('center', secondCenter);
+    fixture.detectChanges();
+
+    const visitorMarkers = fixture.nativeElement.querySelectorAll('.discovery-visitor-marker');
+    expect(visitorMarkers.length).toBe(1);
+
+    const visitorMarker = (component as unknown as { visitorMarker: L.Marker | null })
+      .visitorMarker;
+    expect(visitorMarker).not.toBeNull();
+    const latLng = visitorMarker!.getLatLng();
+    expect(latLng.lat).toBeCloseTo(secondCenter.latitude, 5);
+    expect(latLng.lng).toBeCloseTo(secondCenter.longitude, 5);
   });
 });

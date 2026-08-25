@@ -37,6 +37,17 @@ const FALLBACK_CENTER: MapCenter = { latitude: -34.905830, longitude: -56.191388
 const TILE_LAYER_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_LAYER_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
+/** Ícono distintivo del marcador de "tu ubicación" (Block 2) — `L.divIcon` con estilos inline en
+ * vez de un archivo de imagen nuevo, decisión de PLAN para no repetir el incidente de íconos
+ * perdidos por un `git checkout` accidental (FIX-002). Círculo celeste con borde blanco, distinto
+ * del pin por defecto de Leaflet que usan los marcadores de murales. */
+const VISITOR_ICON = L.divIcon({
+  className: 'discovery-visitor-marker',
+  html: '<div style="width: 16px; height: 16px; border-radius: 50%; background-color: #1890ff; border: 3px solid #ffffff; box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);"></div>',
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+});
+
 /**
  * Leaflet map for the `discovery` feature (spec Block 7). Imperative `leaflet` usage — decision
  * from PLAN: `leaflet` directly, not `ngx-leaflet` (no new dependency beyond Block 4's).
@@ -68,6 +79,9 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
    * `effect()` de abajo: sin esto, cada emisión de `center()` (incluso con el mismo valor)
    * dispararía un `setView` nuevo. */
   private lastAppliedCenter: MapCenter | null = null;
+  /** Marcador distintivo de "tu ubicación" (Block 2) — se crea una única vez en `applyCenter()` y
+   * a partir de ahí solo se reposiciona con `.setLatLng()`, nunca se destruye y recrea. */
+  private visitorMarker: L.Marker | null = null;
 
   constructor() {
     // Re-renderiza los marcadores cuando `items` cambia DESPUÉS del render inicial (p. ej.
@@ -152,6 +166,22 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
     }
     this.map.setView(this.toLatLng(center), this.map.getZoom());
     this.lastAppliedCenter = center;
+
+    const latLng = this.toLatLng(center);
+    if (this.visitorMarker) {
+      this.visitorMarker.setLatLng(latLng);
+    } else {
+      // Leaflet agrega la clase base `leaflet-marker-icon` a CUALQUIER icono de marcador
+      // (incluidos los `L.divIcon`) en `Icon._setIconStyles`, sin importar `className` — así los
+      // marcadores de murales y el de visitante comparten esa clase por diseño de la librería. NO
+      // se quita: `leaflet-marker-icon` trae `position: absolute` desde los "required styles" de
+      // `leaflet.css`, y Leaflet posiciona el ícono únicamente vía `transform` inline — nunca fija
+      // `position` inline. Sin esa clase el marcador queda mal posicionado en un navegador real
+      // (jsdom no lo detecta porque no calcula layout CSS). El marcador de visitante ya es
+      // distinguible por su propia clase (`discovery-visitor-marker`, que Leaflet concatena, no
+      // reemplaza) — los selectores que necesiten excluirlo usan `:not(.discovery-visitor-marker)`.
+      this.visitorMarker = L.marker(latLng, { icon: VISITOR_ICON }).addTo(this.map);
+    }
   }
 
   private renderMarkers(items: NearbyMuralItemResponse[]): void {
