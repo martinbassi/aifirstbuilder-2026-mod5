@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Frontend</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <!--
+    Mitigation R5 (docs/daw/security/threat-FEAT-001a.md), risk accepted with defense-in-depth: the
+    session token lives in sessionStorage (Block 8, session.store.ts), which is readable by any
+    script that runs on the page — this CSP is the mitigation that reduces the odds of an attacker
+    script running in the first place (no inline scripts, only same-origin resources).
+
+    Dev-only variant (mitigation R1, docs/daw/security/threat-FIX-002.md): `img-src` additionally
+    allows `http://127.0.0.1:10000`, the local Azure Storage emulator (Azurite), so mural photos
+    uploaded against a local backend actually render. Wired in via `angular.json` ->
+    `architect.build.configurations.development.fileReplacements`, so this file only ships when
+    building/serving with the `development` configuration — never in `production`. Add
+    `index.{env}.html` + its own `fileReplacements` entry for any future environment (staging,
+    etc.) that needs a different CSP than production's.
+  -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org http://127.0.0.1:10000; connect-src 'self' https://localhost:7126; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    />
+  </head>
+  <body>
+    <app-root></app-root>
+  </body>
+</html>

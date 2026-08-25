@@ -69,15 +69,17 @@ del storage local, y `<img>` de foto sin restricción de tamaño.
 6. `frontend/angular.json` — en `projects.frontend.architect.build.configurations.development`,
    agregar:
    ```json
-   "fileReplacements": [
-     { "replace": "src/index.html", "with": "src/index.development.html" }
-   ]
+   "index": "src/index.development.html"
    ```
-   Mitigación R1 del threat model: `ng serve` (que usa `development` por default, y `serve` hereda
-   de `build`) sirve `index.development.html` con la CSP relajada; `ng build` (que usa `production`
-   por default) sigue empaquetando `index.html`, sin el origen de Azurite. Deja el mecanismo
+   Mitigación R1 del threat model. Nota de implementación (CODE): `fileReplacements` — lo planeado
+   originalmente en PLAN — resultó inválido para este caso: el schema del builder de Angular solo lo
+   permite sobre archivos `.ts`/`.js`/`.json` (pensado para `environment.ts`), no sobre `index.html`.
+   La opción `index` del builder sí es overrideable por configuración y es el mecanismo que Angular
+   documenta para esto — mismo resultado (`ng serve`, que usa `development` por default, sirve
+   `index.development.html` con la CSP relajada; `ng build`, que usa `production` por default, sigue
+   empaquetando `index.html` sin el origen de Azurite), mecanismo corregido. Deja el mismo patrón
    preparado para que `staging`/`production`, cuando se definan como configuraciones propias, sumen
-   su propio `index.{env}.html` con su propio `fileReplacements`.
+   su propio `index.{env}.html` con su propio override de `index`.
 
 7. `frontend/public/images/leaflet/marker-icon.png`, `marker-icon-2x.png`, `marker-shadow.png`,
    `layers.png`, `layers-2x.png` — agregar a git (ya existen en el working tree sin trackear;

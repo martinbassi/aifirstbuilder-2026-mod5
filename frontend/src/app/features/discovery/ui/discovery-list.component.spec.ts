@@ -79,6 +79,9 @@ describe('DiscoveryListComponent', () => {
       '[data-testid="item-photo"]',
     ) as HTMLImageElement;
     expect(photo.src).toBe('https://storage.example.com/mural-photos/mural-1.jpg?sas=token');
+    // Regression test (FIX-002, RCA causa raíz #4): sin restricción de tamaño, una foto a
+    // resolución nativa desborda el panel de detalle.
+    expect(photo.style.maxWidth).toBe('300px');
 
     const createdAt = fixture.nativeElement.querySelector('[data-testid="item-created-at"]');
     expect(createdAt.textContent).toContain('2026');

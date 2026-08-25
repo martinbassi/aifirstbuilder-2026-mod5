@@ -12,6 +12,18 @@ import {
 import * as L from 'leaflet';
 import { NearbyMuralItemResponse } from '../../../core/api-client/api-client.generated';
 
+// `_getIconUrl` no está en las definiciones de tipos públicas de Leaflet — es el workaround
+// documentado de la propia librería para bundlers ESM (esbuild/Angular 21), que sin esto resuelven
+// mal la URL de los íconos por defecto y dejan los marcadores del mapa invisibles (FIX-002).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'images/leaflet/marker-icon-2x.png',
+  iconUrl: 'images/leaflet/marker-icon.png',
+  shadowUrl: 'images/leaflet/marker-shadow.png',
+});
+
 /** Coordinates used to center the map — same shape as `GeolocationCoordinates`
  * (`shared/geolocation.service.ts`), redeclared here so this component does not have to import
  * that service just for a structural type. */
@@ -21,7 +33,7 @@ export interface MapCenter {
 }
 
 const DEFAULT_ZOOM = 14;
-const FALLBACK_CENTER: MapCenter = { latitude: 0, longitude: 0 };
+const FALLBACK_CENTER: MapCenter = { latitude: -34.905830, longitude: -56.191388 };
 const TILE_LAYER_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_LAYER_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
@@ -84,7 +96,7 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
    * 1) `center` input (ubicación real del visitante, la más precisa cuando está disponible);
    * 2) el primer mural de `items` (aproxima "centrar donde hay contenido" si aún no hay
    *    ubicación del visitante pero sí resultados);
-   * 3) un fallback fijo (0,0) para que `ngAfterViewInit` nunca falle por falta de datos. */
+   * 3) un fallback fijo (Montevideo) para que `ngAfterViewInit` nunca falle por falta de datos. */
   private resolveCenter(): MapCenter {
     const center = this.center();
     if (center) {
