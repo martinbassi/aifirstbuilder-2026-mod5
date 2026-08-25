@@ -72,6 +72,10 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
   readonly center = input<MapCenter | null>(null);
 
   readonly muralSelected = output<NearbyMuralItemResponse>();
+  /** Emite el centro vigente del mapa cuando el USUARIO lo mueve o hace zoom (arrastre/scroll) —
+   * nunca cuando el propio componente lo recentra programáticamente (Block 1). `discovery-page`
+   * escucha este output para mostrar el botón "Buscar en esta área" (Block 3). */
+  readonly mapMoved = output<MapCenter>();
 
   private map: L.Map | null = null;
   private markers: L.Marker[] = [];
@@ -82,6 +86,12 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
   /** Marcador distintivo de "tu ubicación" (Block 2) — se crea una única vez en `applyCenter()` y
    * a partir de ahí solo se reposiciona con `.setLatLng()`, nunca se destruye y recrea. */
   private visitorMarker: L.Marker | null = null;
+  /** Guarda anti-loop de `mapMoved` (Block 3): `applyCenter()` la fija en `true` justo antes de
+   * `map.setView(...)`, la única vía por la que este componente mueve el mapa. `setView()` dispara
+   * `moveend` igual que un arrastre real del usuario — sin esta guarda, cada recentrado
+   * programático (geolocalización, coordenadas manuales) emitiría `mapMoved` y dispararía el botón
+   * "Buscar en esta área" sin que el usuario tocara el mapa. */
+  private suppressNextMapMoved = false;
 
   constructor() {
     // Re-renderiza los marcadores cuando `items` cambia DESPUÉS del render inicial (p. ej.
@@ -120,6 +130,12 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
     // `applyCenter()` depende de `this.map.getZoom()` ya devolviendo un valor válido, y Leaflet solo
     // lo inicializa desde `options.zoom` — no requiere `options.center` para hacerlo.
     this.map = L.map(this.mapContainer().nativeElement, { zoom: DEFAULT_ZOOM });
+    // Enganchado ANTES de la primera llamada a `applyCenter()` más abajo: su `setView()` inicial
+    // también dispara `moveend`, y necesita que el listener ya esté activo para consumir la guarda
+    // `suppressNextMapMoved` que `applyCenter()` fija — si no, quedaría en `true` para siempre y el
+    // primer movimiento real del usuario se perdería en silencio.
+    this.map.on('moveend', () => this.handleMapMoved());
+    this.map.on('zoomend', () => this.handleMapMoved());
     // `tileLayer.addTo()` corre ANTES de tener un centro real (`applyCenter()` todavía no se llamó).
     // Es intencional y seguro: `Map.addLayer()` difiere el `onAdd()` del layer con `whenReady()`
     // hasta el evento `'load'` del mapa cuando este todavía no está cargado, así que `GridLayer`
@@ -164,6 +180,7 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
     if (!this.map) {
       return;
     }
+    this.suppressNextMapMoved = true;
     this.map.setView(this.toLatLng(center), this.map.getZoom());
     this.lastAppliedCenter = center;
 
@@ -182,6 +199,21 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
       // reemplaza) — los selectores que necesiten excluirlo usan `:not(.discovery-visitor-marker)`.
       this.visitorMarker = L.marker(latLng, { icon: VISITOR_ICON }).addTo(this.map);
     }
+  }
+
+  /** Handler único de `moveend`/`zoomend` (Block 3). Primero chequea la guarda anti-loop: si el
+   * movimiento lo disparó el propio componente (`applyCenter()`), la consume y no emite nada; si
+   * es un movimiento real del usuario (arrastre o zoom), emite `mapMoved` con el centro vigente. */
+  private handleMapMoved(): void {
+    if (this.suppressNextMapMoved) {
+      this.suppressNextMapMoved = false;
+      return;
+    }
+    if (!this.map) {
+      return;
+    }
+    const center = this.map.getCenter();
+    this.mapMoved.emit({ latitude: center.lat, longitude: center.lng });
   }
 
   private renderMarkers(items: NearbyMuralItemResponse[]): void {

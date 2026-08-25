@@ -1,8 +1,10 @@
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
 import { NearbyMuralItemResponse } from '../../../core/api-client/api-client.generated';
 import { GeolocationService } from '../../../shared/geolocation.service';
 import { DiscoveryService } from '../data/discovery.service';
+import { DiscoveryMapComponent } from './discovery-map.component';
 import { DiscoveryPageComponent } from './discovery-page.component';
 
 function buildItem(overrides: Partial<NearbyMuralItemResponse> = {}): NearbyMuralItemResponse {
@@ -120,5 +122,32 @@ describe('DiscoveryPageComponent', () => {
     // El error nunca queda "silencioso": items se mantiene vacío en vez de dejar un estado
     // inconsistente/loading colgado.
     expect(fixture.componentInstance.items()).toEqual([]);
+  });
+
+  // Block 3 — output `mapMoved` y botón "Buscar en esta área" (spec-FEAT-005).
+
+  // Required test: el botón "Buscar en esta área" no está presente al cargar la página; aparece
+  // después de que app-discovery-map emite mapMoved — valida AC-04.
+  it('el botón "Buscar en esta área" no está al cargar y aparece tras mapMoved (AC-04)', async () => {
+    geolocationService.getCurrentPosition.mockReturnValue(
+      Promise.resolve({ latitude: -34.6037, longitude: -58.3816 }),
+    );
+    discoveryService.getNearbyMurals.mockReturnValue(of([]));
+
+    const fixture = TestBed.createComponent(DiscoveryPageComponent);
+    fixture.detectChanges();
+    await flushMicrotasks(fixture);
+
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="search-area-button"]'),
+    ).toBeNull();
+
+    const mapDebugEl = fixture.debugElement.query(By.directive(DiscoveryMapComponent));
+    const mapComponent = mapDebugEl.componentInstance as DiscoveryMapComponent;
+    mapComponent.mapMoved.emit({ latitude: -34.0, longitude: -58.0 });
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('[data-testid="search-area-button"]');
+    expect(button).not.toBeNull();
   });
 });

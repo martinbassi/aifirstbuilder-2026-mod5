@@ -241,4 +241,56 @@ describe('DiscoveryMapComponent', () => {
     expect(latLng.lat).toBeCloseTo(secondCenter.latitude, 5);
     expect(latLng.lng).toBeCloseTo(secondCenter.longitude, 5);
   });
+
+  // Block 3 — output `mapMoved` y botón "Buscar en esta área" (spec-FEAT-005).
+
+  // Required test: simular un moveend iniciado por el usuario (map.panTo, no vía applyCenter()) y
+  // verificar que mapMoved emite con el nuevo centro.
+  it('un moveend iniciado por el usuario emite mapMoved con el nuevo centro', () => {
+    fixture.detectChanges();
+
+    const map = (component as unknown as { map: L.Map }).map;
+    let emitted: MapCenter | undefined;
+    component.mapMoved.subscribe((center) => {
+      emitted = center;
+    });
+
+    map.panTo([-33.0, -57.0], { animate: false });
+
+    expect(emitted).toBeDefined();
+    expect(emitted!.latitude).toBeCloseTo(-33.0, 5);
+    expect(emitted!.longitude).toBeCloseTo(-57.0, 5);
+  });
+
+  // Required test: cuando el recentrado lo dispara el propio componente (input `center` cambia,
+  // Block 1), mapMoved NO emite — valida la guarda anti-loop.
+  it('el recentrado programático vía center() NO emite mapMoved (guarda anti-loop)', () => {
+    fixture.detectChanges();
+
+    let emitted = false;
+    component.mapMoved.subscribe(() => {
+      emitted = true;
+    });
+
+    const newCenter: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    fixture.componentRef.setInput('center', newCenter);
+    fixture.detectChanges();
+
+    expect(emitted).toBe(false);
+  });
+
+  // Required test: un zoomend iniciado por el usuario también emite mapMoved con el centro vigente.
+  it('un zoomend iniciado por el usuario emite mapMoved con el centro vigente', () => {
+    fixture.detectChanges();
+
+    const map = (component as unknown as { map: L.Map }).map;
+    let emitted: MapCenter | undefined;
+    component.mapMoved.subscribe((center) => {
+      emitted = center;
+    });
+
+    map.setZoom(map.getZoom() + 1, { animate: false });
+
+    expect(emitted).toBeDefined();
+  });
 });

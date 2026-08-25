@@ -7,7 +7,7 @@ import { NearbyMuralItemResponse } from '../../../core/api-client/api-client.gen
 import { ApiError } from '../../../core/http/api-error';
 import { GeolocationCoordinates, GeolocationService } from '../../../shared/geolocation.service';
 import { DiscoveryService } from '../data/discovery.service';
-import { DiscoveryMapComponent } from './discovery-map.component';
+import { DiscoveryMapComponent, MapCenter } from './discovery-map.component';
 import { DiscoveryListComponent } from './discovery-list.component';
 
 const MIN_LATITUDE = -90;
@@ -54,6 +54,14 @@ export class DiscoveryPageComponent implements OnInit {
   readonly manualLatitude = signal<number | null>(null);
   readonly manualLongitude = signal<number | null>(null);
 
+  /** true una vez que `app-discovery-map` emite `mapMoved` (Block 3) — revela el botón "Buscar en
+   * esta área". Se tipa `MapCenter`, no `GeolocationCoordinates` (el tipo de `center` en este mismo
+   * archivo): representan conceptos distintos — ubicación del visitante vs. último centro que el
+   * usuario dejó el mapa — y unificarlos acoplaría "de dónde vino el centro" con "cuál es el centro
+   * actual". */
+  readonly showSearchAreaButton = signal(false);
+  readonly lastMapCenter = signal<MapCenter | null>(null);
+
   readonly canSearchManually = computed(() => {
     const latitude = this.manualLatitude();
     const longitude = this.manualLongitude();
@@ -89,6 +97,14 @@ export class DiscoveryPageComponent implements OnInit {
     const longitude = this.manualLongitude() as number;
     this.center.set({ latitude, longitude });
     this.fetchNearbyMurals(latitude, longitude);
+  }
+
+  /** Triggered by `app-discovery-map`'s `mapMoved` output (Block 3) — a real user drag/zoom, never
+   * a programmatic recenter (the map's own anti-loop guard filters that out). Just tracks the new
+   * center and reveals the "Buscar en esta área" button; the actual refetch is wired in Block 4. */
+  onMapMoved(center: MapCenter): void {
+    this.lastMapCenter.set(center);
+    this.showSearchAreaButton.set(true);
   }
 
   /** Currently just tracked for a future "highlight on the map"/"scroll to" behavior — the
