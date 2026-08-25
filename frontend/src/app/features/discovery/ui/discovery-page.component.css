@@ -1,0 +1,7 @@
+.showSearchArea {
+    text-align: center;
+    
+    .ant-btn {
+        margin-top: 10px;
+    }
+}

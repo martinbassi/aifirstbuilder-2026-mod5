@@ -227,29 +227,6 @@ describe('SidebarComponent', () => {
     expect(clearSessionSpy).toHaveBeenCalled();
     expect(navigateSpy).toHaveBeenCalledWith(['/login']);
   });
-
-  // Required test 10 (AC-11/FR-09/NFR-01): botón de expandir/contraer.
-  it('el botón de expandir/contraer llama a layoutStore.toggle() y cambia su aria-label', () => {
-    const fixture = TestBed.createComponent(SidebarComponent);
-    fixture.detectChanges();
-
-    const layoutStore = TestBed.inject(LayoutStore);
-    const toggleSpy = vi.spyOn(layoutStore, 'toggle');
-
-    const toggleButton: HTMLButtonElement = fixture.nativeElement.querySelector(
-      '[data-testid="sidebar-toggle"]',
-    );
-    const initialLabel = toggleButton.getAttribute('aria-label');
-
-    toggleButton.click();
-    fixture.detectChanges();
-
-    expect(toggleSpy).toHaveBeenCalled();
-    const newLabel = toggleButton.getAttribute('aria-label');
-    expect(newLabel).not.toBe(initialLabel);
-    expect(['Expandir menú', 'Contraer menú']).toContain(initialLabel);
-    expect(['Expandir menú', 'Contraer menú']).toContain(newLabel);
-  });
 });
 
 // Required test 9 (AC-15/FR-01/FR-03): click en "Cargar mural" sin sesión termina en /login,

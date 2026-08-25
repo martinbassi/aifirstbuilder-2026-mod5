@@ -10,6 +10,7 @@ import {
   CloseCircleOutline,
   CloudUploadOutline,
   CompassOutline,
+  EnvironmentOutline,
   ExclamationCircleOutline,
   GoogleOutline,
   InfoCircleOutline,
@@ -17,6 +18,7 @@ import {
   MenuFoldOutline,
   MenuUnfoldOutline,
   SafetyCertificateOutline,
+  SearchOutline,
   UserOutline,
 } from '@ant-design/icons-angular/icons';
 import { registerLocaleData } from '@angular/common';
@@ -67,6 +69,8 @@ export const appConfig: ApplicationConfig = {
       UserOutline,
       MenuFoldOutline,
       MenuUnfoldOutline,
+      EnvironmentOutline,
+      SearchOutline,
     ]),
   ],
 };
