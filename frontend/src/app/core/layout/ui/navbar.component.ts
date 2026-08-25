@@ -42,13 +42,17 @@ export class NavbarComponent {
   /**
    * Walks the activated route tree down to its deepest child and reads `data['title']` there.
    * Returns an empty string instead of throwing when `title` is missing (spec Block 3 "Error
-   * handling") — the navbar must never break because a route forgot to declare a title.
+   * handling") — the navbar must never break because a route forgot to declare a title. `snapshot`
+   * itself is read with optional chaining: on the first activation of a lazily-loaded parent route
+   * (e.g. `AppShellComponent`) with a lazily-loaded child, this component can be constructed before
+   * the router finishes `advanceActivatedRoute` on the child's `ActivatedRoute`, leaving
+   * `node.snapshot` transiently `undefined`.
    */
   private readActiveTitle(): string {
     let node = this.router.routerState.root;
     while (node.firstChild) {
       node = node.firstChild;
     }
-    return (node.snapshot.data['title'] as string | undefined) ?? '';
+    return (node.snapshot?.data['title'] as string | undefined) ?? '';
   }
 }

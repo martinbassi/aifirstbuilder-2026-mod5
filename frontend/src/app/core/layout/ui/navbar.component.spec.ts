@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Router, Routes, provideRouter } from '@angular/router';
+import { Router, RouterOutlet, Routes, provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { MenuFoldOutline, MenuUnfoldOutline } from '@ant-design/icons-angular/icons';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
 import { LayoutStore } from '../state/layout.store';
@@ -8,6 +9,34 @@ import { NavbarComponent } from './navbar.component';
 
 @Component({ selector: 'app-dummy-route', template: '' })
 class DummyRouteComponent {}
+
+// Reproduce el árbol de rutas que Block 5 conectará: un padre lazy (`loadComponent`, como
+// AppShellComponent) que renderiza <app-navbar> como hermano estático de <router-outlet>, con un
+// child TAMBIÉN lazy (como `discover`/`murals/new`/`moderation`). En la PRIMERA navegación a ese
+// child, Angular Router construye el shell (y por lo tanto el NavbarComponent) antes de que
+// `advanceActivatedRoute` complete sobre el `ActivatedRoute` del child — el nodo más profundo del
+// árbol tiene `snapshot === undefined` en ese instante.
+@Component({
+  selector: 'app-test-shell',
+  standalone: true,
+  imports: [NavbarComponent, RouterOutlet],
+  template: '<app-navbar></app-navbar><router-outlet></router-outlet>',
+})
+class TestShellComponent {}
+
+const lazyShellRoutes: Routes = [
+  {
+    path: 'shell',
+    loadComponent: () => Promise.resolve(TestShellComponent),
+    children: [
+      {
+        path: 'discover',
+        loadComponent: () => Promise.resolve(DummyRouteComponent),
+        data: { title: 'Descubrir' },
+      },
+    ],
+  },
+];
 
 // Dummy routes with `data.title` — isolates NavbarComponent from the real app.routes.ts (Block 5),
 // which this block does not depend on. `MenuFoldOutline`/`MenuUnfoldOutline` are registered locally
@@ -117,5 +146,37 @@ describe('NavbarComponent', () => {
       '[data-testid="navbar-title"]',
     );
     expect(titleEl.textContent?.trim()).toBe('');
+  });
+});
+
+describe('NavbarComponent — regresión: TypeError en la primera activación de rutas lazy anidadas', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      providers: [provideRouter(lazyShellRoutes), provideNzIcons([MenuFoldOutline, MenuUnfoldOutline])],
+    }).compileComponents();
+  });
+
+  // Reproduce el bug real: NavbarComponent, como hermano estático de <router-outlet> dentro de un
+  // padre ruteado con `loadComponent` (lazy) que tiene un child TAMBIÉN con `loadComponent` (lazy),
+  // se construye al navegar por primera vez a ese child. Antes del fix, `readActiveTitle()` lanza
+  // `TypeError: Cannot read properties of undefined (reading 'data')` porque el nodo más profundo
+  // del árbol de rutas todavía no tiene `snapshot` asignado en ese instante.
+  it('no lanza TypeError al navegar por primera vez a un child lazy dentro de un padre lazy', async () => {
+    const harness = await RouterTestingHarness.create();
+
+    let thrown: unknown;
+    try {
+      await harness.navigateByUrl('/shell/discover');
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeUndefined();
+
+    harness.detectChanges();
+    const titleEl: HTMLElement | null | undefined = harness.routeNativeElement?.parentElement
+      ?.querySelector('app-navbar')
+      ?.querySelector('[data-testid="navbar-title"]');
+    expect(titleEl?.textContent?.trim()).toBe('Descubrir');
   });
 });
