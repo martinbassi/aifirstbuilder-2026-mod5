@@ -7,7 +7,7 @@ import { NearbyMuralItemResponse } from '../../../core/api-client/api-client.gen
 import { ApiError } from '../../../core/http/api-error';
 import { GeolocationCoordinates, GeolocationService } from '../../../shared/geolocation.service';
 import { DiscoveryService } from '../data/discovery.service';
-import { DiscoveryMapComponent } from './discovery-map.component';
+import { DiscoveryMapComponent, MapCenter } from './discovery-map.component';
 import { DiscoveryListComponent } from './discovery-list.component';
 
 const MIN_LATITUDE = -90;
@@ -54,6 +54,14 @@ export class DiscoveryPageComponent implements OnInit {
   readonly manualLatitude = signal<number | null>(null);
   readonly manualLongitude = signal<number | null>(null);
 
+  /** true una vez que `app-discovery-map` emite `mapMoved` (Block 3) — revela el botón "Buscar en
+   * esta área". Se tipa `MapCenter`, no `GeolocationCoordinates` (el tipo de `center` en este mismo
+   * archivo): representan conceptos distintos — ubicación del visitante vs. último centro que el
+   * usuario dejó el mapa — y unificarlos acoplaría "de dónde vino el centro" con "cuál es el centro
+   * actual". */
+  readonly showSearchAreaButton = signal(false);
+  readonly lastMapCenter = signal<MapCenter | null>(null);
+
   readonly canSearchManually = computed(() => {
     const latitude = this.manualLatitude();
     const longitude = this.manualLongitude();
@@ -91,6 +99,27 @@ export class DiscoveryPageComponent implements OnInit {
     this.fetchNearbyMurals(latitude, longitude);
   }
 
+  /** Triggered by `app-discovery-map`'s `mapMoved` output (Block 3) — a real user drag/zoom, never
+   * a programmatic recenter (the map's own anti-loop guard filters that out). Just tracks the new
+   * center and reveals the "Buscar en esta área" button; the actual refetch is wired in Block 4. */
+  onMapMoved(center: MapCenter): void {
+    this.lastMapCenter.set(center);
+    this.showSearchAreaButton.set(true);
+  }
+
+  /** Triggered by the "Buscar en esta área" button (Block 3 wired it, Block 4 connects `(click)`).
+   * Refetches with the last center the map reported via `mapMoved` — no `radiusKm`, uses the
+   * backend's default (5 km, agreed in PLAN). Does not touch `showSearchAreaButton` directly;
+   * `fetchNearbyMurals()` owns that once the request settles. No-op if `lastMapCenter()` is `null`
+   * (button is only rendered after `onMapMoved()` sets it, but this guards the method itself). */
+  searchThisArea(): void {
+    const center = this.lastMapCenter();
+    if (!center) {
+      return;
+    }
+    this.fetchNearbyMurals(center.latitude, center.longitude);
+  }
+
   /** Currently just tracked for a future "highlight on the map"/"scroll to" behavior — the
    * spec's completion criterion for this block only requires the selection to surface a detail,
    * which `discovery-list` already renders inline on its own selection state; wiring both
@@ -122,10 +151,14 @@ export class DiscoveryPageComponent implements OnInit {
       next: (items) => {
         this.loading.set(false);
         this.items.set(items);
+        // Oculta "Buscar en esta área" (Block 3) al asentarse la consulta — no-op si el botón ya
+        // estaba oculto (geolocalización inicial o búsqueda manual, que no lo muestran).
+        this.showSearchAreaButton.set(false);
       },
       error: (error: ApiError) => {
         this.loading.set(false);
         this.errorMessage.set(error.message);
+        this.showSearchAreaButton.set(false);
       },
     });
   }

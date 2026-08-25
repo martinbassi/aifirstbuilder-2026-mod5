@@ -57,6 +57,21 @@
     [items]="items()"
     [center]="center()"
     (muralSelected)="onMuralSelected()"
+    (mapMoved)="onMapMoved($event)"
   />
+
+  @if (showSearchAreaButton()) {
+    <button
+      nz-button
+      nzType="default"
+      [nzLoading]="loading()"
+      [disabled]="loading()"
+      (click)="searchThisArea()"
+      data-testid="search-area-button"
+    >
+      Buscar en esta área
+    </button>
+  }
+
   <app-discovery-list [items]="items()" (muralSelected)="onMuralSelected()" />
 </div>
