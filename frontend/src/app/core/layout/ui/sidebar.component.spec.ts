@@ -7,6 +7,8 @@ import {
   CloudUploadOutline,
   CompassOutline,
   LogoutOutline,
+  MenuFoldOutline,
+  MenuUnfoldOutline,
   SafetyCertificateOutline,
 } from '@ant-design/icons-angular/icons';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
@@ -267,6 +269,8 @@ describe('SidebarComponent — integración con authGuard real', () => {
           CloudUploadOutline,
           SafetyCertificateOutline,
           LogoutOutline,
+          MenuFoldOutline,
+          MenuUnfoldOutline,
         ]),
       ],
     });
