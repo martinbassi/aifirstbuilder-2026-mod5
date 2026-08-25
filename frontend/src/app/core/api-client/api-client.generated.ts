@@ -568,16 +568,21 @@ export class MuralsClient {
     }
 
     /**
+     * @param title (optional) 
      * @param photo (optional) 
      * @param latitude (optional) 
      * @param longitude (optional) 
      * @return Created
      */
-    muralsPOST(photo?: FileParameter | undefined, latitude?: number | undefined, longitude?: number | undefined): Observable<CreateMuralResponse> {
+    muralsPOST(title?: string | undefined, photo?: FileParameter | undefined, latitude?: number | undefined, longitude?: number | undefined): Observable<CreateMuralResponse> {
         let url_ = this.baseUrl + "/api/murals";
         url_ = url_.replace(/[?&]$/, "");
 
         const content_ = new FormData();
+        if (title === null || title === undefined)
+            throw new globalThis.Error("The parameter 'title' cannot be null.");
+        else
+            content_.append("Title", title.toString());
         if (photo === null || photo === undefined)
             throw new globalThis.Error("The parameter 'photo' cannot be null.");
         else
@@ -998,6 +1003,7 @@ export class MuralResponse implements IMuralResponse {
     id?: string;
     status?: string | undefined;
     photoUrl?: string | undefined;
+    title?: string | undefined;
     latitude?: number;
     longitude?: number;
     createdAt?: Date;
@@ -1016,6 +1022,7 @@ export class MuralResponse implements IMuralResponse {
             this.id = _data["id"];
             this.status = _data["status"];
             this.photoUrl = _data["photoUrl"];
+            this.title = _data["title"];
             this.latitude = _data["latitude"];
             this.longitude = _data["longitude"];
             this.createdAt = _data["createdAt"] ? new Date(_data["createdAt"].toString()) : undefined as any;
@@ -1034,6 +1041,7 @@ export class MuralResponse implements IMuralResponse {
         data["id"] = this.id;
         data["status"] = this.status;
         data["photoUrl"] = this.photoUrl;
+        data["title"] = this.title;
         data["latitude"] = this.latitude;
         data["longitude"] = this.longitude;
         data["createdAt"] = this.createdAt ? this.createdAt.toISOString() : undefined as any;
@@ -1045,6 +1053,7 @@ export interface IMuralResponse {
     id?: string;
     status?: string | undefined;
     photoUrl?: string | undefined;
+    title?: string | undefined;
     latitude?: number;
     longitude?: number;
     createdAt?: Date;
@@ -1053,6 +1062,7 @@ export interface IMuralResponse {
 export class NearbyMuralItemResponse implements INearbyMuralItemResponse {
     id?: string;
     photoUrl?: string | undefined;
+    title?: string | undefined;
     latitude?: number;
     longitude?: number;
     createdAt?: Date;
@@ -1071,6 +1081,7 @@ export class NearbyMuralItemResponse implements INearbyMuralItemResponse {
         if (_data) {
             this.id = _data["id"];
             this.photoUrl = _data["photoUrl"];
+            this.title = _data["title"];
             this.latitude = _data["latitude"];
             this.longitude = _data["longitude"];
             this.createdAt = _data["createdAt"] ? new Date(_data["createdAt"].toString()) : undefined as any;
@@ -1089,6 +1100,7 @@ export class NearbyMuralItemResponse implements INearbyMuralItemResponse {
         data = typeof data === 'object' ? data : {};
         data["id"] = this.id;
         data["photoUrl"] = this.photoUrl;
+        data["title"] = this.title;
         data["latitude"] = this.latitude;
         data["longitude"] = this.longitude;
         data["createdAt"] = this.createdAt ? this.createdAt.toISOString() : undefined as any;
@@ -1100,6 +1112,7 @@ export class NearbyMuralItemResponse implements INearbyMuralItemResponse {
 export interface INearbyMuralItemResponse {
     id?: string;
     photoUrl?: string | undefined;
+    title?: string | undefined;
     latitude?: number;
     longitude?: number;
     createdAt?: Date;

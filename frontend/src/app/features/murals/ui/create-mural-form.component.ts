@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
@@ -38,6 +45,7 @@ export class CreateMuralFormComponent implements OnInit {
   /** UX-only inline feedback for the file selector — see `ALLOWED_PHOTO_TYPES` above. */
   readonly fileError = signal<string | null>(null);
 
+  readonly title = signal<string | null>(null);
   readonly latitude = signal<number | null>(null);
   readonly longitude = signal<number | null>(null);
   /** True once geolocation is known to be unavailable/denied — reveals the manual inputs without
@@ -52,11 +60,14 @@ export class CreateMuralFormComponent implements OnInit {
 
   readonly canSubmit = computed(() => {
     const file = this.selectedFile();
+    const title = this.title();
     const latitude = this.latitude();
     const longitude = this.longitude();
     return (
       file !== null &&
       this.fileError() === null &&
+      title !== null &&
+      title.trim().length > 0 &&
       latitude !== null &&
       latitude >= MIN_LATITUDE &&
       latitude <= MAX_LATITUDE &&
@@ -97,6 +108,10 @@ export class CreateMuralFormComponent implements OnInit {
     this.selectedFile.set(file);
   }
 
+  onTitleChange(event: Event): void {
+    this.title.set((event.target as HTMLInputElement).value);
+  }
+
   onLatitudeChange(event: Event): void {
     this.latitude.set(this.parseNumberInput(event));
   }
@@ -111,6 +126,7 @@ export class CreateMuralFormComponent implements OnInit {
     }
 
     const request: CreateMuralRequest = {
+      title: this.title() as string,
       photo: this.selectedFile() as File,
       latitude: this.latitude() as number,
       longitude: this.longitude() as number,

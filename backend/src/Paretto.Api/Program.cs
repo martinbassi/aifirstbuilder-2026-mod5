@@ -12,6 +12,7 @@ using Paretto.Infrastructure.Data;
 using Paretto.Infrastructure.Moderation;
 using Paretto.Infrastructure.Security;
 using Paretto.Infrastructure.Storage;
+using Paretto.Infrastructure.Common;
 
 // ADR-003 (supersedes ADR-002): fija la cultura por defecto del proceso a Invariant en vez de
 // deshabilitar la globalización entera (InvariantGlobalization=true). Ese flag resultó incompatible
@@ -142,13 +143,22 @@ builder.Services.AddSwaggerGen();
 if (builder.Environment.IsDevelopment())
 {
     var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-        ?? Array.Empty<string>();
+        ?? [];
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("DevelopmentCors", policy =>
             policy.WithOrigins(allowedOrigins).AllowAnyMethod().AllowAnyHeader());
     });
 }
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    options.SerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+    options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    options.SerializerOptions.Converters.Add(new JsonDateTimeUtcConverter());
+});
+
 
 var app = builder.Build();
 

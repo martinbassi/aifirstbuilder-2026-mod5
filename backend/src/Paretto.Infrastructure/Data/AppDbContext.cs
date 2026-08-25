@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Paretto.Domain.Entities;
 using Paretto.Domain.Enums;
+using Paretto.Infrastructure.Data.ValueConverters;
 
 namespace Paretto.Infrastructure.Data;
 
@@ -52,6 +53,7 @@ public class AppDbContext : DbContext
         {
             // Blobs se nombran `{Guid}{extensión}`, muy por debajo del límite.
             entity.Property(m => m.PhotoBlobName).IsRequired().HasMaxLength(300);
+            entity.Property(m => m.Title).IsRequired().HasMaxLength(50);
             entity.Property(m => m.Latitude).IsRequired();
             entity.Property(m => m.Longitude).IsRequired();
             entity.Property(m => m.Status).IsRequired().HasDefaultValue(MuralStatus.Pending);
@@ -73,5 +75,9 @@ public class AppDbContext : DbContext
             entity.HasIndex(m => new { m.Status, m.Latitude, m.Longitude })
                 .HasDatabaseName("IX_Murals_Status_Latitude_Longitude");
         });
+    }
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
     }
 }

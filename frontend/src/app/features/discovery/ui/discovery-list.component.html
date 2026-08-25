@@ -1,40 +1,39 @@
 <div data-testid="discovery-list">
-    <nz-list nzItemLayout="vertical">
-      @for (item of items(); track item.id) {
-        <nz-list-item [attr.data-testid]="'discovery-item-' + item.id"
-        (click)="select(item)">
-          <nz-list-item-meta>
-            <nz-list-item-meta-avatar [nzSrc]="item.photoUrl" />
-            <nz-list-item-meta-title>
-              <!-- {{ item.title }} -->
-                Titulo
-            </nz-list-item-meta-title>
-            <nz-list-item-meta-description data-testid="item-distance">
-              {{ item.distanceKm | number : '1.2-2' }} km
-            </nz-list-item-meta-description>
-          </nz-list-item-meta>
-          <ul nz-list-item-actions>
-            <nz-list-item-action data-testid="item-location">
-              <nz-icon nzType="environment" nzTheme="outline" style="margin-right: 8px;" />
-              {{ item.latitude }}, {{ item.longitude }}
-            </nz-list-item-action>            
-            <nz-list-item-action data-testid="item-created-at">
-              <nz-icon nzType="calendar" nzTheme="outline" style="margin-right: 8px;" />
-              {{ item.createdAt | date: 'dd/MM/yyyy HH:mm':'utc-3' }}
-            </nz-list-item-action>
-          </ul>
-          <nz-list-item-extra>
-             <img
-      nz-image
-      width="60"
-      alt="Foto del mural" data-testid="item-photo"
-      [nzSrc]="item.photoUrl ?? ''"
-      [nzFallback]="fallback"
-    />
-          </nz-list-item-extra>
-        </nz-list-item>
-      } @empty {
-        <nz-list-empty [nzNoResult]="'No se encontraron murales publicados en este radio.'" />
-      }
-    </nz-list>
+  <nz-list nzItemLayout="vertical">
+    @for (item of items(); track item.id) {
+      <nz-list-item [attr.data-testid]="'discovery-item-' + item.id" (click)="select(item)">
+        <nz-list-item-meta>
+          <nz-list-item-meta-avatar [nzSrc]="item.photoUrl" />
+          <nz-list-item-meta-title>
+            {{ item.title }}
+          </nz-list-item-meta-title>
+          <nz-list-item-meta-description data-testid="item-distance">
+            {{ item.distanceKm | number: '1.2-2' }} km
+          </nz-list-item-meta-description>
+        </nz-list-item-meta>
+        <ul nz-list-item-actions>
+          <nz-list-item-action data-testid="item-location">
+            <nz-icon nzType="environment" nzTheme="outline" style="margin-right: 8px" />
+            {{ item.latitude }}, {{ item.longitude }}
+          </nz-list-item-action>
+          <nz-list-item-action data-testid="item-created-at">
+            <nz-icon nzType="calendar" nzTheme="outline" style="margin-right: 8px" />
+            {{ item.createdAt | date: 'dd/MM/yyyy HH:mm' : 'UTC-3' }}
+          </nz-list-item-action>
+        </ul>
+        <nz-list-item-extra>
+          <img
+            nz-image
+            style="width: 60px; cursor: pointer"
+            alt="Foto del mural"
+            data-testid="item-photo"
+            [nzSrc]="item.photoUrl ?? ''"
+            [nzFallback]="fallback"
+          />
+        </nz-list-item-extra>
+      </nz-list-item>
+    } @empty {
+      <nz-list-empty [nzNoResult]="'No se encontraron murales publicados en este radio.'" />
+    }
+  </nz-list>
 </div>

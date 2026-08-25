@@ -32,6 +32,19 @@
     <nz-alert nzType="error" [nzMessage]="message" nzShowIcon data-testid="file-error-message" />
   }
 
+  <nz-form-item>
+    <nz-form-label nzFor="mural-title" nzRequired>Título</nz-form-label>
+    <nz-form-control>
+      <input
+        nz-input
+        id="mural-title"
+        [value]="title()"
+        (input)="onTitleChange($event)"
+        data-testid="title-input"
+      />
+    </nz-form-control>
+  </nz-form-item>
+
   @if (manualLocationRequired()) {
     <nz-form-item>
       <nz-form-label nzFor="mural-latitude" nzRequired>Latitud</nz-form-label>

@@ -9,6 +9,8 @@ public class Mural
     public Guid UserId { get; set; }
 
     public User? User { get; set; }
+    
+    public string Title { get; set; } = string.Empty;
 
     /// <summary>
     /// Nombre del blob en Azure Storage (p. ej. `{Guid}{extensión}`), NUNCA una URL ni el nombre de

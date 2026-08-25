@@ -9,6 +9,7 @@ import { toApiError } from '../../../core/http/api-error';
 
 export interface CreateMuralRequest {
   photo: File;
+  title: string;
   latitude: number;
   longitude: number;
 }
@@ -29,6 +30,7 @@ export class MuralService {
   create(request: CreateMuralRequest): Observable<CreateMuralResponse> {
     return this.muralsClient
       .muralsPOST(
+        request.title,
         { data: request.photo, fileName: request.photo.name },
         request.latitude,
         request.longitude,

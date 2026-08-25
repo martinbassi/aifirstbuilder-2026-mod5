@@ -2,8 +2,6 @@ using System.Security.Claims;
 using FluentValidation;
 using MapsterMapper;
 using MediatR;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Paretto.Api.Common.Exceptions;
 using Paretto.Domain.Entities;
@@ -22,6 +20,8 @@ namespace Paretto.Api.Features.Murals.Commands;
 /// </summary>
 public class CreateMuralCommand : IRequest<CreateMuralResponse>
 {
+    public string Title { get; set; } = string.Empty;
+
     public IFormFile Photo { get; set; } = null!;
 
     // `InvariantGlobalization` is enabled process-wide (both `Paretto.Api.csproj` and
@@ -45,6 +45,10 @@ public class CreateMuralCommandValidator : AbstractValidator<CreateMuralCommand>
 
     public CreateMuralCommandValidator()
     {
+         RuleFor(x => x.Title)
+            .NotEmpty()
+            .MaximumLength(50);
+
         RuleFor(x => x.Photo)
             .NotNull()
             .WithMessage("Photo is required.");
@@ -194,6 +198,7 @@ public class CreateMuralCommandHandler : IRequestHandler<CreateMuralCommand, Cre
         var mural = new Mural
         {
             UserId = userId,
+            Title = request.Title,
             PhotoBlobName = blobName,
             Latitude = request.Latitude,
             Longitude = request.Longitude,

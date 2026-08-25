@@ -1,0 +1,21 @@
+{
+  "git.autofetch": true,
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "*.html": "${capture}.ts,${capture}.css,${capture}.spec.ts"
+  },
+  "git.enableSmartCommit": true,
+  "git.openRepositoryInParentFolders": "never",
+  "eslint.format.enable": true,
+  "editor.formatOnSave": true,
+  "eslint.codeActionsOnSave.rules": null,
+  "editor.indentSize": "tabSize",
+  "editor.tabSize": 1,
+  "html.format.wrapLineLength": 80,
+  "html.format.wrapAttributes": "force-expand-multiline",
+  "html.format.unformatted": "",
+  "diffEditor.wordWrap": "inherit",
+  "editor.wordWrap": "off",
+  "editor.defaultFormatter": "esbenp.prettier-vscode"
+}
