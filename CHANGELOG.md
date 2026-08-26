@@ -96,3 +96,10 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   reales que sirven la API — movido a `AddControllers().AddJsonOptions`. `prd-FEAT-001b.md`
   actualizado (FR-17/AC-15/AC-16) para documentar el campo `Title`, que había quedado sin
   trazabilidad en el PRD original.
+- **FIX-004**: la validación NSFW nunca clasificaba de verdad una foto WebP — `NsfwSpy` reencoda
+  WebP internamente con un entero (`(MagickFormat)179`) compilado contra `Magick.NET-Q16-AnyCPU`
+  11.1.2 (donde esa posición del enum era `Png`), pero el proyecto pinnea esa dependencia a
+  14.16.0 por seguridad, versión en la que la misma posición pasó a ser `Phm`; el WebP se
+  reencodaba mal y la clasificación siempre fallaba, cayendo en silencio a `Pending` sin haber sido
+  evaluada. `NsfwSpyClassifier` ahora reencoda WebP a PNG por nombre de enum (`MagickFormat.Png`)
+  antes de llamar a NsfwSpy, evitando su branch interno roto.
