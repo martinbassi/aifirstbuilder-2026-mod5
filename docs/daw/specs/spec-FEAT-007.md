@@ -99,7 +99,7 @@ sesión no es válida). El caso defensivo de usuario no encontrado se documenta 
 
 **Completion criterion**
 
-Los 4 tests pasan; `dotnet build` limpio; `GET /api/auth/session` con un token de sesión válido
+Los 5 tests pasan; `dotnet build` limpio; `GET /api/auth/session` con un token de sesión válido
 devuelve 200 con el `username`/`role` reales del usuario dueño de ese token.
 
 ## Block 2 — Regenerar el cliente NSwag
