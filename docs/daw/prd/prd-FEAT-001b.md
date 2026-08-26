@@ -5,7 +5,7 @@
 | Ticket | FEAT-001b |
 | Tracker | none |
 | Date | 2026-08-15 |
-| PRD loops | 0 |
+| PRD loops | 1 |
 
 ## Context and Problem
 
@@ -61,6 +61,10 @@ volver a definirla.
 - FR-16: El sistema debe restringir el acceso a la fotografía de un mural en estado "pendiente" o
   "rechazado" únicamente a su dueño o a un usuario con rol Administrador. (RNF-009, en conjunto con
   RF-013)
+- FR-17: El sistema debe requerir un título para el mural al momento de crearlo, de hasta 50
+  caracteres, rechazando la creación si se omite o si lo excede. *(Agregado en PRD loop 1, a raíz de
+  FIX-003: el commit 9cecf21 introdujo este campo como obligatorio sin que el PRD original lo
+  documentara.)*
 
 ## Non-Functional Requirements
 
@@ -107,6 +111,11 @@ volver a definirla.
   una URL de acceso temporal firmada de corta duración, generada en el momento de la respuesta. (FR-15)
 - AC-14: IF un mural está en estado "pendiente" o "rechazado" y quien consulta su fotografía no es
   su dueño ni tiene rol Administrador, THEN THE sistema SHALL rechazar el acceso a esa fotografía. (FR-16)
+- AC-15: IF el usuario omite el título del mural o ingresa uno de más de 50 caracteres, THEN THE
+  sistema SHALL rechazar la creación del mural con un error de validación indicando el motivo.
+  (FR-17)
+- AC-16: WHEN el usuario ingresa un título de hasta 50 caracteres junto con una fotografía y
+  ubicación válidas, THE sistema SHALL aceptar y persistir el mural con ese título. (FR-17)
 
 ## Out of Scope
 
