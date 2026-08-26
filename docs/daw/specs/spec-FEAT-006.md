@@ -152,3 +152,32 @@ muerto sobre comportamiento ya existente en producción.
 Suite completa de `discovery/*.spec.ts` (map, list, page) en verde. Ningún test ni código de
 producción interpola `item.title` como HTML. `prd-FEAT-001d.md` AC-04 y AC-10 tienen ambos al menos
 un test que los verifica.
+
+## Evidencia TDD
+
+Reproducida en el corrective loop de VERIFY (ronda 1): se restauró temporalmente el código de
+producción de Block 1 y Block 2 al estado del commit `c80cccc` (previo a CODE, solo spec/threat)
+manteniendo los tests nuevos/reescritos de ambos bloques, y se corrió la suite completa.
+
+**Rojo** (`discovery-map.component.ts`/`discovery-list.component.ts`/`.html`/`app.config.ts` en su
+versión pre-CODE, tests en su versión final): 6 tests fallando, 132 pasando —
+
+- `discovery-map.component.spec.ts`:
+  - `hacer click en un marcador abre un popup` — Block 1, AC-10
+  - `el popup contiene el título del mural` — Block 1, AC-10
+  - `el popup contiene la fecha de creación formateada` — Block 1, AC-10
+  - `un título con HTML se renderiza como texto literal, no como HTML inyectado` — Block 1, regresión
+    de seguridad del threat model
+- `discovery-list.component.spec.ts`:
+  - `cada fila muestra título, foto, distancia, ubicación y fecha sin necesidad de click (AC-04)` —
+    Block 2
+  - `items vacío muestra el mensaje de sin resultados, sin botón de ampliar radio (AC-06)` — Block 2
+    (fallaba porque `data-testid="empty-message"` todavía no existía en el HTML pre-Block 2)
+
+**Verde**: se restauró el código de producción a su versión final (`git diff --stat` contra el
+estado previo a esta reproducción, vacío) y se corrió la suite de nuevo — 138/138 tests, 0 fallos.
+
+El test `un mural con title/createdAt undefined no lanza excepción al renderizar el popup` no forma
+parte del rojo: es una aserción de "no lanza", que pre-CODE también se cumplía trivialmente (el
+código viejo nunca llamaba a `bindPopup`). Su valor es de regresión hacia adelante, no de TDD
+rojo→verde.
