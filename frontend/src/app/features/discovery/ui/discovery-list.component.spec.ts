@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideNzIconsTesting } from 'ng-zorro-antd/icon/testing';
 import { NearbyMuralItemResponse } from '../../../core/api-client/api-client.generated';
 import { DiscoveryListComponent } from './discovery-list.component';
 
@@ -19,7 +20,16 @@ describe('DiscoveryListComponent', () => {
   let component: DiscoveryListComponent;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ imports: [DiscoveryListComponent] });
+    TestBed.configureTestingModule({
+      imports: [DiscoveryListComponent],
+      // FEAT-006: sin esto, `nz-icon` lanza IconNotFoundError al renderizar item-location/
+      // item-created-at (gap preexistente, nunca provisto en este spec — ver también el fix de
+      // registro de CalendarOutline en app.config.ts, faltaba desde antes del rediseño Card→NzList).
+      // `provideNzIconsTesting()` (utilidad oficial de ng-zorro para tests, registra todo el set)
+      // en vez de `provideNzIcons([...])` con una lista manual — evita quedar atado a qué íconos
+      // exactos usa el template hoy.
+      providers: [provideNzIconsTesting()],
+    });
     fixture = TestBed.createComponent(DiscoveryListComponent);
     component = fixture.componentInstance;
   });
@@ -45,11 +55,15 @@ describe('DiscoveryListComponent', () => {
     ]);
   });
 
-  // Required test: selección de un ítem muestra su detalle inline (foto/fecha/ubicación, AC-04).
-  it('seleccionar un ítem muestra su detalle inline: foto, fecha y ubicación (AC-04)', () => {
+  // Required test: título, foto, distancia, ubicación y fecha están presentes en cada fila
+  // SIN necesidad de click (AC-04) — el rediseño Card→NzList (d65842f) reemplazó el panel de
+  // detalle-al-seleccionar por campos siempre visibles; `select()` sigue emitiendo `muralSelected`
+  // para que `discovery-page` sincronice la selección con el mapa (FEAT-006).
+  it('cada fila muestra título, foto, distancia, ubicación y fecha sin necesidad de click (AC-04)', () => {
     const items = [
       buildItem({
         id: 'mural-1',
+        title: 'Mural del Cerro',
         photoUrl: 'https://storage.example.com/mural-photos/mural-1.jpg?sas=token',
         latitude: -34.6037,
         longitude: -58.3816,
@@ -59,29 +73,15 @@ describe('DiscoveryListComponent', () => {
     fixture.componentRef.setInput('items', items);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[data-testid="item-detail"]')).toBeNull();
-
-    let emitted: NearbyMuralItemResponse | undefined;
-    component.muralSelected.subscribe((mural) => {
-      emitted = mural;
-    });
-
     const itemElement = fixture.nativeElement.querySelector(
       '[data-testid="discovery-item-mural-1"]',
     ) as HTMLElement;
-    itemElement.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    fixture.detectChanges();
-
-    const detail = fixture.nativeElement.querySelector('[data-testid="item-detail"]');
-    expect(detail).not.toBeNull();
+    expect(itemElement.textContent).toContain('Mural del Cerro');
 
     const photo = fixture.nativeElement.querySelector(
       '[data-testid="item-photo"]',
     ) as HTMLImageElement;
     expect(photo.src).toBe('https://storage.example.com/mural-photos/mural-1.jpg?sas=token');
-    // Regression test (FIX-002, RCA causa raíz #4): sin restricción de tamaño, una foto a
-    // resolución nativa desborda el panel de detalle.
-    expect(photo.style.maxWidth).toBe('300px');
 
     const createdAt = fixture.nativeElement.querySelector('[data-testid="item-created-at"]');
     expect(createdAt.textContent).toContain('2026');
@@ -90,6 +90,13 @@ describe('DiscoveryListComponent', () => {
     expect(location.textContent).toContain('-34.6037');
     expect(location.textContent).toContain('-58.3816');
 
+    // `select()` sigue emitiendo `muralSelected` aunque el template ya no dependa de ningún
+    // estado de selección propio.
+    let emitted: NearbyMuralItemResponse | undefined;
+    component.muralSelected.subscribe((mural) => {
+      emitted = mural;
+    });
+    itemElement.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     expect(emitted).toEqual(items[0]);
   });
 
