@@ -208,12 +208,17 @@ public class CreateMuralTests : IClassFixture<WebApplicationFactory<Program>>
 
     private static byte[] NotAnImageBytes() => "this is definitely not an image file"u8.ToArray();
 
+    // FIX-003: el commit 9cecf21 agregó Title como campo obligatorio en CreateMuralCommand
+    // (NotEmpty + MaximumLength(50)) pero este helper nunca lo enviaba, rompiendo los tests que
+    // esperan 201. Default válido para no forzar a cada call site a pasarlo explícitamente; los
+    // dos tests de borde de abajo sí lo pasan para ejercitar el rechazo.
     private static MultipartFormDataContent BuildMultipartContent(
         byte[] photoBytes,
         string contentType,
         double latitude,
         double longitude,
-        string fileName = "mural.jpg")
+        string fileName = "mural.jpg",
+        string title = "Mural de prueba")
     {
         var content = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(photoBytes);
@@ -221,6 +226,7 @@ public class CreateMuralTests : IClassFixture<WebApplicationFactory<Program>>
         content.Add(fileContent, "Photo", fileName);
         content.Add(new StringContent(latitude.ToString(CultureInfo.InvariantCulture)), "Latitude");
         content.Add(new StringContent(longitude.ToString(CultureInfo.InvariantCulture)), "Longitude");
+        content.Add(new StringContent(title), "Title");
         return content;
     }
 
@@ -505,6 +511,44 @@ public class CreateMuralTests : IClassFixture<WebApplicationFactory<Program>>
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var content = BuildMultipartContent(ValidJpegBytes(), "image/jpeg", latitude, longitude);
+        var response = await client.PostAsync("/api/murals", content);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    }
+
+    // FIX-003: cubre FR-17/AC-15 de prd-FEAT-001b.md (Title obligatorio, agregado por el commit
+    // 9cecf21 sin cobertura de test). Rechazo con 400, no 422: Title es un `string` no-anulable
+    // (nullable reference types habilitado) y [ApiController] le aplica un [Required] implícito
+    // durante el model binding — ModelState queda inválido y el 400 automático ocurre ANTES de que
+    // el request llegue al Handler/FluentValidation (CreateMuralCommandValidator.NotEmpty() nunca
+    // se ejecuta para este caso; sí lo hace en el caso de longitud del test siguiente, porque un
+    // string de 51 caracteres no está vacío y pasa el [Required] implícito).
+    [Fact]
+    public async Task Missing_title_is_rejected_with_400()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString(), nsfwContentScanner: new FakeNsfwContentScanner(NsfwScanResult.Clean));
+        var (_, username, password) = await SeedUserAsync(factory);
+        var client = factory.CreateClient();
+        var token = await LoginAsync(client, username, password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var content = BuildMultipartContent(ValidJpegBytes(), "image/jpeg", 0, 0, title: "");
+        var response = await client.PostAsync("/api/murals", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    // FIX-003: cubre FR-17/AC-15 de prd-FEAT-001b.md (límite de 50 caracteres).
+    [Fact]
+    public async Task Title_longer_than_50_characters_is_rejected_with_422()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString(), nsfwContentScanner: new FakeNsfwContentScanner(NsfwScanResult.Clean));
+        var (_, username, password) = await SeedUserAsync(factory);
+        var client = factory.CreateClient();
+        var token = await LoginAsync(client, username, password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var content = BuildMultipartContent(ValidJpegBytes(), "image/jpeg", 0, 0, title: new string('a', 51));
         var response = await client.PostAsync("/api/murals", content);
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
