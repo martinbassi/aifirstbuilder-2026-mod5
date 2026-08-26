@@ -70,6 +70,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   confundir un movimiento del usuario con un recentrado programático) y vuelve a consultar murales
   cercanos usando el centro actual del mapa, manteniendo los resultados previos visibles durante la
   carga. Sin cambios de backend ni de contrato de API.
+- **FEAT-006 — Popup de mural en el mapa de /discover**: al hacer click en un marcador del mapa
+  ahora se abre un popup de Leaflet con el título del mural y su fecha de creación (antes el click
+  no producía ningún feedback visual). El contenido se construye exclusivamente vía DOM API
+  (`createElement`/`textContent`, nunca interpolación de string HTML) porque el título es texto
+  libre de usuario sin sanitización HTML en el backend — mitiga un XSS almacenado de riesgo HIGH
+  (ver threat model del ticket). La lista completa su AC-04 pendiente: título, foto, distancia,
+  ubicación y fecha ahora se muestran siempre por fila, sin necesidad de click (el panel de detalle
+  al seleccionar, mencionado en la entrada de FEAT-001d arriba, quedó reemplazado desde el rediseño
+  Card→NzList).
 
 ### Fixed
 
@@ -96,3 +105,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   reales que sirven la API — movido a `AddControllers().AddJsonOptions`. `prd-FEAT-001b.md`
   actualizado (FR-17/AC-15/AC-16) para documentar el campo `Title`, que había quedado sin
   trazabilidad en el PRD original.
+- **FEAT-006**: `CalendarOutline` nunca se había registrado en `app.config.ts` pese a usarse desde
+  antes del rediseño Card→NzList — el ícono de fecha estaba roto en producción (`IconNotFoundError`
+  en tiempo de ejecución, mismo patrón que los gaps de registro de `MuralsClient`/`DiscoveryClient`
+  corregidos en tickets anteriores). Encontrado al escribir los tests de la lista para este ticket.
