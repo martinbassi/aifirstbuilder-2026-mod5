@@ -116,6 +116,26 @@ public class LoginTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.InRange(expiresAt, before.AddDays(7).AddMinutes(-1), before.AddDays(7).AddMinutes(1));
     }
 
+    // FIX-003: el cambio de AddJsonOptions en Program.cs (JsonDateTimeUtcConverter movido al
+    // JsonOptions correcto) es global — afecta cualquier controller MVC, no solo Murals. Gap
+    // detectado por el impact scan de PLAN: sin este test, LoginCommand.ExpiresAt quedaba sin
+    // cobertura del nuevo formato de fecha.
+    [Fact]
+    public async Task ExpiresAt_is_serialized_with_the_full_utc_format()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString());
+        var (_, username, password) = await SeedUserAsync(factory);
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { username, password });
+        var raw = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Expected 200, got {response.StatusCode}: {raw}");
+
+        var expiresAt = JsonDocument.Parse(raw).RootElement.GetProperty("expiresAt").GetString();
+        Assert.Matches(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", expiresAt);
+    }
+
     [Fact]
     public async Task Login_with_a_Standard_user_returns_role_Standard_in_the_response()
     {

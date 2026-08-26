@@ -31,7 +31,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+// FIX-003: JsonDateTimeUtcConverter (y el resto de la config de abajo) vivía únicamente en
+// ConfigureHttpJsonOptions, que configura Microsoft.AspNetCore.Http.Json.JsonOptions — las
+// opciones que usan los endpoints de Minimal API. Este proyecto sirve todo a través de
+// controllers MVC (MapControllers), que serializan con Microsoft.AspNetCore.Mvc.JsonOptions, un
+// objeto de configuración distinto que no hereda de ConfigureHttpJsonOptions. Sin este bloque, el
+// converter nunca se aplicaba a una respuesta real (ver docs/daw/specs/rca-FIX-003.md).
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+    options.JsonSerializerOptions.Converters.Add(new JsonDateTimeUtcConverter());
+});
 
 builder.Services.AddMediatR(cfg =>
 {

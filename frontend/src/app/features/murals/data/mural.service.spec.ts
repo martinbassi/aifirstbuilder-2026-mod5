@@ -36,12 +36,15 @@ describe('MuralService', () => {
 
     let received: CreateMuralResponse | undefined;
 
-    service.create({ photo, latitude: -34.6, longitude: -58.4 }).subscribe((result) => {
-      received = result;
-    });
+    service
+      .create({ photo, title: 'Mural de prueba', latitude: -34.6, longitude: -58.4 })
+      .subscribe((result) => {
+        received = result;
+      });
 
     expect(received).toEqual(response);
     expect(muralsClient.muralsPOST).toHaveBeenCalledWith(
+      'Mural de prueba',
       { data: photo, fileName: 'wall.jpg' },
       -34.6,
       -58.4,
@@ -63,7 +66,7 @@ describe('MuralService', () => {
     let receivedError: unknown;
     let completed = false;
 
-    service.create({ photo, latitude: -34.6, longitude: -58.4 }).subscribe({
+    service.create({ photo, title: 'Mural de prueba', latitude: -34.6, longitude: -58.4 }).subscribe({
       next: () => {
         completed = true;
       },
@@ -86,7 +89,7 @@ describe('MuralService', () => {
 
     let receivedError: unknown;
 
-    service.create({ photo, latitude: -34.6, longitude: -58.4 }).subscribe({
+    service.create({ photo, title: 'Mural de prueba', latitude: -34.6, longitude: -58.4 }).subscribe({
       error: (error) => {
         receivedError = error;
       },

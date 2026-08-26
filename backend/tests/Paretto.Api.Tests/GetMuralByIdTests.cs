@@ -227,4 +227,27 @@ public class GetMuralByIdTests : IClassFixture<WebApplicationFactory<Program>>
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    // FIX-003: JsonDateTimeUtcConverter estaba registrado en el JsonOptions equivocado
+    // (ConfigureHttpJsonOptions en vez de AddControllers().AddJsonOptions) y nunca aplicaba a las
+    // respuestas de MuralsController — ver docs/daw/specs/rca-FIX-003.md, causa raíz #2.
+    [Fact]
+    public async Task CreatedAt_is_serialized_with_the_full_utc_format()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString());
+        var (ownerId, username, password) = await SeedUserAsync(factory);
+        var muralId = await SeedMuralAsync(factory, ownerId, MuralStatus.Pending);
+
+        var client = factory.CreateClient();
+        var token = await LoginAsync(client, username, password);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await client.GetAsync($"/api/murals/{muralId}");
+        var raw = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Expected 200, got {response.StatusCode}: {raw}");
+
+        var createdAt = JsonDocument.Parse(raw).RootElement.GetProperty("createdAt").GetString();
+        Assert.Matches(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", createdAt);
+    }
 }

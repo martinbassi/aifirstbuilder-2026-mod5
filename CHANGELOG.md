@@ -88,3 +88,11 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   (mismo defecto corregido también en la pantalla de moderación). La CSP relajada para el storage
   local queda acotada a la configuración `development` de Angular (`index.development.html`, vía
   override de `index` en `angular.json`) — nunca llega al build de producción.
+- **FIX-003**: corregidos los tests rotos por un commit directo a `main` que agregó `Title`
+  obligatorio a `Mural` y dos converters de fecha UTC sin actualizar la suite. El helper de tests de
+  creación de murales (backend) nunca enviaba `Title`, rompiendo 8 tests; los tests de formulario
+  (frontend) tampoco lo enviaban, dejando de compilar. Corregido además el wiring del converter de
+  fecha: estaba registrado en el `JsonOptions` de Minimal API, sin efecto sobre los controllers MVC
+  reales que sirven la API — movido a `AddControllers().AddJsonOptions`. `prd-FEAT-001b.md`
+  actualizado (FR-17/AC-15/AC-16) para documentar el campo `Title`, que había quedado sin
+  trazabilidad en el PRD original.

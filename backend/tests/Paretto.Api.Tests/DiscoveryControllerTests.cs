@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -115,5 +116,29 @@ public class DiscoveryControllerTests : IClassFixture<WebApplicationFactory<Prog
         var rejectedResponse = await client.GetAsync($"/api/discovery/nearby-murals?lat={OriginLat}&lng={OriginLon}&radiusKm=5");
 
         Assert.Equal(HttpStatusCode.TooManyRequests, rejectedResponse.StatusCode);
+    }
+
+    // FIX-003: GetNearbyMuralsTests (Block 2) invoca el Handler directo, sin pasar por
+    // serialización JSON — este es el único punto donde el formato real de fecha que devuelve
+    // GET /api/discovery/nearby-murals puede verificarse. JsonDateTimeUtcConverter estaba
+    // registrado en el JsonOptions equivocado y nunca aplicaba a esta respuesta — ver
+    // docs/daw/specs/rca-FIX-003.md, causa raíz #2.
+    [Fact]
+    public async Task CreatedAt_is_serialized_with_the_full_utc_format()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString());
+        await SeedPublishedMuralAsync(factory, OriginLat, OriginLon);
+
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/discovery/nearby-murals?lat={OriginLat}&lng={OriginLon}&radiusKm=5");
+        var raw = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Expected 200, got {response.StatusCode}: {raw}");
+
+        var items = JsonDocument.Parse(raw).RootElement.GetProperty("items");
+        Assert.True(items.GetArrayLength() > 0);
+        var createdAt = items[0].GetProperty("createdAt").GetString();
+        Assert.Matches(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", createdAt);
     }
 }

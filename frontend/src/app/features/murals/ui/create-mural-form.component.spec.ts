@@ -24,6 +24,15 @@ function numberInputEvent(value: number): Event {
   return { target: input } as unknown as Event;
 }
 
+// FIX-003: Title es obligatorio desde el commit 9cecf21 (`canSubmit` lo exige) — helper análogo a
+// `numberInputEvent` para que los tests puedan simular su ingreso.
+function titleInputEvent(value: string): Event {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = value;
+  return { target: input } as unknown as Event;
+}
+
 /**
  * Stubs the injected `GeolocationService` mock (Block 6) instead of `navigator.geolocation`
  * directly — the component no longer touches the browser API itself, it delegates to the
@@ -172,6 +181,7 @@ describe('CreateMuralFormComponent', () => {
 
     const validFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
     component.onFileSelected(fileChangeEvent(validFile));
+    component.onTitleChange(titleInputEvent('Mural de prueba'));
     component.onLatitudeChange(numberInputEvent(-34.6));
     component.onLongitudeChange(numberInputEvent(-58.4));
     fixture.detectChanges();
@@ -197,6 +207,7 @@ describe('CreateMuralFormComponent', () => {
 
     const validFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
     component.onFileSelected(fileChangeEvent(validFile));
+    component.onTitleChange(titleInputEvent('Mural de prueba'));
     fixture.detectChanges();
 
     component.submit();
@@ -224,6 +235,7 @@ describe('CreateMuralFormComponent', () => {
 
     const validFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
     component.onFileSelected(fileChangeEvent(validFile));
+    component.onTitleChange(titleInputEvent('Mural de prueba'));
     fixture.detectChanges();
 
     component.submit();
@@ -244,6 +256,7 @@ describe('CreateMuralFormComponent', () => {
     expect(muralService.create).toHaveBeenCalledTimes(2);
     expect(muralService.create).toHaveBeenNthCalledWith(2, {
       photo: validFile,
+      title: 'Mural de prueba',
       latitude: -34.6,
       longitude: -58.4,
     });
