@@ -109,3 +109,10 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   antes del rediseño Card→NzList — el ícono de fecha estaba roto en producción (`IconNotFoundError`
   en tiempo de ejecución, mismo patrón que los gaps de registro de `MuralsClient`/`DiscoveryClient`
   corregidos en tickets anteriores). Encontrado al escribir los tests de la lista para este ticket.
+- **FIX-004**: la validación NSFW nunca clasificaba de verdad una foto WebP — `NsfwSpy` reencoda
+  WebP internamente con un entero (`(MagickFormat)179`) compilado contra `Magick.NET-Q16-AnyCPU`
+  11.1.2 (donde esa posición del enum era `Png`), pero el proyecto pinnea esa dependencia a
+  14.16.0 por seguridad, versión en la que la misma posición pasó a ser `Phm`; el WebP se
+  reencodaba mal y la clasificación siempre fallaba, cayendo en silencio a `Pending` sin haber sido
+  evaluada. `NsfwSpyClassifier` ahora reencoda WebP a PNG por nombre de enum (`MagickFormat.Png`)
+  antes de llamar a NsfwSpy, evitando su branch interno roto.
