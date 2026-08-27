@@ -6,9 +6,16 @@
   @if (!loadError()) {
     @for (mural of murals(); track mural.id) {
       <nz-card [attr.data-testid]="'mural-item-' + mural.id">
-        <img style="max-width: 300px;" [src]="mural.photoUrl" alt="Foto del mural pendiente" data-testid="mural-photo" />
+        <img
+          style="max-width: 300px"
+          [src]="mural.photoUrl"
+          alt="Foto del mural pendiente"
+          data-testid="mural-photo"
+        />
         <p data-testid="mural-location">{{ mural.latitude }}, {{ mural.longitude }}</p>
-        <p data-testid="mural-created-at">{{ mural.createdAt }}</p>
+        <p data-testid="mural-created-at">
+          {{ mural.createdAt | date: 'dd/MM/yyyy HH:mm' : 'UTC-3' }}
+        </p>
 
         @if (itemError(mural.id!); as message) {
           <nz-alert

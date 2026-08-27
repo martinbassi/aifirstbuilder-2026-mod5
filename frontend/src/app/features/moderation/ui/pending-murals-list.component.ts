@@ -1,10 +1,18 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzCardModule } from 'ng-zorro-antd/card';
 import { MuralResponse } from '../../../core/api-client/api-client.generated';
 import { ApiError } from '../../../core/http/api-error';
 import { ModerationService } from '../data/moderation.service';
+import { DatePipe } from '@angular/common';
 
 /**
  * Admin-only "moderación mínima" screen (spec Block 7). Standalone, signals-based — no NgRx/other
@@ -16,7 +24,7 @@ import { ModerationService } from '../data/moderation.service';
 @Component({
   selector: 'app-pending-murals-list',
   standalone: true,
-  imports: [NzAlertModule, NzButtonModule, NzCardModule],
+  imports: [NzAlertModule, NzButtonModule, NzCardModule, DatePipe],
   templateUrl: './pending-murals-list.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

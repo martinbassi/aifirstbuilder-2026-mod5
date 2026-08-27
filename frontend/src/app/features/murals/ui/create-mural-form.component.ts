@@ -137,9 +137,15 @@ export class CreateMuralFormComponent implements OnInit {
     this.submitting.set(true);
 
     this.muralService.create(request).subscribe({
-      next: () => {
+      next: (data) => {
         this.submitting.set(false);
-        this.successMessage.set('Tu mural quedó pendiente de revisión.');
+        if (data.status === 'pending') {
+          this.successMessage.set('Tu mural quedó pendiente de revisión.');
+        } else {
+          this.errorMessage.set(
+            'Tu mural fue rechazado ya que no cumple con los criterios de moderación.',
+          );
+        }
       },
       error: (error: ApiError) => {
         this.submitting.set(false);
