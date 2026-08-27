@@ -5,7 +5,7 @@
 | Ticket | FEAT-001d |
 | Tracker | none |
 | Date | 2026-08-15 |
-| PRD loops | 0 |
+| PRD loops | 1 |
 
 ## Context and Problem
 
@@ -31,8 +31,8 @@ descubrirlo cerca de su ubicación.
   "pendiente" o "rechazado". (RF-013)
 - FR-03: El sistema debe mostrar un marcador por cada mural publicado dentro del área visible del
   mapa. (RF-006)
-- FR-04: El sistema debe mostrar la fotografía, fecha de creación y ubicación de un mural publicado
-  seleccionado. (RF-007)
+- FR-04: El sistema debe mostrar el título, la fotografía, fecha de creación y ubicación de un mural
+  publicado seleccionado en la lista. (RF-007)
 - FR-05: El sistema debe ordenar los resultados de murales cercanos de menor a mayor distancia
   respecto de la ubicación del usuario. (RF-008)
 - FR-06: El sistema debe informar al usuario cuando no existan murales publicados dentro del radio
@@ -42,6 +42,11 @@ descubrirlo cerca de su ubicación.
 - FR-08: El sistema debe mostrar la pantalla de inicio de sesión al abrir la aplicación cuando no
   hay sesión activa, y la pantalla de exploración de murales cuando sí la hay. (RF-050, adaptado —
   sin la rama de Administrador, que no tiene pantalla propia en este sub-ticket)
+- FR-09: El sistema debe mostrar el título y la fecha de creación de un mural publicado en un popup
+  al hacer click en su marcador en el mapa. (RF-007) *(Agregado en PRD loop 1, a raíz de FEAT-006:
+  el click en un marcador nunca tuvo efecto — `onMuralSelected()` quedó intencionalmente vacío en
+  FEAT-005 — y el FR-04 original nunca cubrió el mapa como superficie propia con su propio conjunto
+  de campos.)*
 
 ## Non-Functional Requirements
 
@@ -57,8 +62,8 @@ descubrirlo cerca de su ubicación.
   las búsquedas y del mapa públicos, sin importar la ubicación de quien consulta. (FR-02)
 - AC-03: WHEN existen murales publicados dentro del área visible del mapa, THE sistema SHALL
   mostrar un marcador por cada mural en su ubicación correspondiente. (FR-03)
-- AC-04: WHEN el usuario selecciona un mural publicado desde la lista o el mapa, THE sistema SHALL
-  mostrar su fotografía (mediante la URL firmada del servicio de FEAT-001b), fecha de creación y
+- AC-04: WHEN el usuario selecciona un mural publicado en la lista, THE sistema SHALL mostrar su
+  título, fotografía (mediante la URL firmada del servicio de FEAT-001b), fecha de creación y
   ubicación. (FR-04)
 - AC-05: WHEN se muestran los resultados de murales cercanos, THE sistema SHALL ordenarlos de menor
   a mayor distancia respecto de la ubicación del usuario. (FR-05)
@@ -71,6 +76,8 @@ descubrirlo cerca de su ubicación.
   pantalla de inicio de sesión. (FR-08)
 - AC-09: WHEN un usuario con sesión activa abre la aplicación, THE sistema SHALL mostrarle la
   pantalla de exploración de murales (mapa/lista). (FR-08)
+- AC-10: WHEN el usuario hace click en el marcador de un mural publicado en el mapa, THE sistema
+  SHALL mostrar un popup con su título y fecha de creación. (FR-09)
 
 ## Out of Scope
 

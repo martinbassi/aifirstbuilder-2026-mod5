@@ -293,4 +293,94 @@ describe('DiscoveryMapComponent', () => {
 
     expect(emitted).toBeDefined();
   });
+
+  // Block 1 — popup del mapa (spec-FEAT-006).
+
+  // Required test: click en un marcador abre un popup — AC-10.
+  it('hacer click en un marcador abre un popup', () => {
+    fixture.componentRef.setInput('items', [buildItem()]);
+    fixture.detectChanges();
+
+    const markerIcon = fixture.nativeElement.querySelector(
+      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+    ) as HTMLElement;
+    markerIcon.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+
+    const popupContent = fixture.nativeElement.querySelector('.leaflet-popup-content');
+    expect(popupContent).toBeTruthy();
+  });
+
+  // Required test: el popup contiene el título del mural correspondiente — AC-10.
+  it('el popup contiene el título del mural', () => {
+    fixture.componentRef.setInput('items', [buildItem({ title: 'Mural del Cerro' })]);
+    fixture.detectChanges();
+
+    const markerIcon = fixture.nativeElement.querySelector(
+      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+    ) as HTMLElement;
+    markerIcon.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+
+    const popupContent = fixture.nativeElement.querySelector(
+      '.leaflet-popup-content',
+    ) as HTMLElement;
+    expect(popupContent.textContent).toContain('Mural del Cerro');
+  });
+
+  // Required test: el popup contiene la fecha de creación formateada — AC-10.
+  it('el popup contiene la fecha de creación formateada', () => {
+    fixture.componentRef.setInput('items', [
+      buildItem({ createdAt: new Date('2026-08-19T14:30:00Z') }),
+    ]);
+    fixture.detectChanges();
+
+    const markerIcon = fixture.nativeElement.querySelector(
+      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+    ) as HTMLElement;
+    markerIcon.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+
+    const popupContent = fixture.nativeElement.querySelector(
+      '.leaflet-popup-content',
+    ) as HTMLElement;
+    expect(popupContent.textContent).toContain('19/08/2026');
+  });
+
+  // Required test (seguridad, threat model FEAT-006, riesgo HIGH): un título con caracteres HTML
+  // especiales se renderiza como TEXTO literal, nunca como HTML/elemento inyectado.
+  it('un título con HTML se renderiza como texto literal, no como HTML inyectado', () => {
+    const maliciousTitle = '<img src=x onerror=alert(1)>';
+    fixture.componentRef.setInput('items', [buildItem({ title: maliciousTitle })]);
+    fixture.detectChanges();
+
+    const markerIcon = fixture.nativeElement.querySelector(
+      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+    ) as HTMLElement;
+    markerIcon.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+
+    const popupContent = fixture.nativeElement.querySelector(
+      '.leaflet-popup-content',
+    ) as HTMLElement;
+    expect(popupContent.querySelector('img')).toBeNull();
+    expect(popupContent.textContent).toContain(maliciousTitle);
+  });
+
+  // Required test (sad path): title/createdAt undefined no lanza ni rompe el render de otros
+  // marcadores.
+  it('un mural con title/createdAt undefined no lanza excepción al renderizar el popup', () => {
+    const incomplete = buildItem({ id: 'mural-incomplete', title: undefined, createdAt: undefined });
+    const complete = buildItem({ id: 'mural-complete', latitude: -34.61, longitude: -58.41 });
+
+    expect(() => {
+      fixture.componentRef.setInput('items', [incomplete, complete]);
+      fixture.detectChanges();
+    }).not.toThrow();
+
+    const markerIcons = fixture.nativeElement.querySelectorAll(
+      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+    );
+    expect(markerIcons.length).toBe(2);
+  });
 });

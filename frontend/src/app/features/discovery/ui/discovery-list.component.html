@@ -12,13 +12,17 @@
           </nz-list-item-meta-description>
         </nz-list-item-meta>
         <ul nz-list-item-actions>
-          <nz-list-item-action data-testid="item-location">
-            <nz-icon nzType="environment" nzTheme="outline" style="margin-right: 8px" />
-            {{ item.latitude }}, {{ item.longitude }}
+          <nz-list-item-action>
+            <span data-testid="item-location">
+              <nz-icon nzType="environment" nzTheme="outline" style="margin-right: 8px" />
+              {{ item.latitude }}, {{ item.longitude }}
+            </span>
           </nz-list-item-action>
-          <nz-list-item-action data-testid="item-created-at">
-            <nz-icon nzType="calendar" nzTheme="outline" style="margin-right: 8px" />
-            {{ item.createdAt | date: 'dd/MM/yyyy HH:mm' : 'UTC-3' }}
+          <nz-list-item-action>
+            <span data-testid="item-created-at">
+              <nz-icon nzType="calendar" nzTheme="outline" style="margin-right: 8px" />
+              {{ item.createdAt | date: 'dd/MM/yyyy HH:mm' : 'UTC-3' }}
+            </span>
           </nz-list-item-action>
         </ul>
         <nz-list-item-extra>
@@ -33,7 +37,10 @@
         </nz-list-item-extra>
       </nz-list-item>
     } @empty {
-      <nz-list-empty [nzNoResult]="'No se encontraron murales publicados en este radio.'" />
+      <nz-list-empty
+        data-testid="empty-message"
+        [nzNoResult]="'No se encontraron murales publicados en este radio.'"
+      />
     }
   </nz-list>
 </div>

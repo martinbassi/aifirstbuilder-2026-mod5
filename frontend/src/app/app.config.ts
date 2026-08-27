@@ -11,6 +11,7 @@ import { rehydrateSessionOnStartup } from './core/bootstrap/session-rehydration.
 import { en_US, provideNzI18n } from 'ng-zorro-antd/i18n';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
 import {
+  CalendarOutline,
   CheckCircleOutline,
   CloseCircleOutline,
   CloudUploadOutline,
@@ -79,6 +80,11 @@ export const appConfig: ApplicationConfig = {
       MenuUnfoldOutline,
       EnvironmentOutline,
       SearchOutline,
+      // Pre-existing gap fixed here (FEAT-006): `discovery-list.component.html` usa
+      // `nzType="calendar"` desde antes del rediseño Card→NzList, pero `CalendarOutline` nunca se
+      // registró — el ícono de fecha estaba roto en producción (mismo patrón que MuralsClient/
+      // DiscoveryClient arriba: sin este registro, `IconNotFoundError` en tiempo de ejecución).
+      CalendarOutline,
     ]),
   ],
 };

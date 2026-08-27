@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { NearbyMuralItemResponse } from '../../../core/api-client/api-client.generated';
 import { NzListModule } from 'ng-zorro-antd/list';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -8,10 +8,11 @@ import { NzImageModule } from 'ng-zorro-antd/image';
 /**
  * List side of the `discovery` feature (spec Block 7). Renders `items` in the exact order
  * received — the backend already orders by `distanceKm` (spec Block 2, AC-05), so this component
- * never re-sorts, per spec. Selecting an item shows its detail inline (photo/date/location,
- * AC-04) using ONLY the fields already present on `NearbyMuralItemResponse` — no extra endpoint
- * call, as documented in the spec ("sin golpear ningún endpoint adicional"). Also emits
- * `muralSelected` so a parent (`discovery-page`) can sync the selection with the map.
+ * never re-sorts, per spec. Title, photo, distance, location and creation date (AC-04) are shown
+ * for every item unconditionally, in its row — no separate "detail" panel that reveals on
+ * selection (that used to exist; the Card→NzList redesign replaced it with always-visible fields,
+ * FEAT-006). `select()` still emits `muralSelected` so a parent (`discovery-page`) can sync the
+ * selection with the map, even though nothing in this component's own template depends on it.
  */
 @Component({
   selector: 'app-discovery-list',
@@ -24,10 +25,7 @@ export class DiscoveryListComponent {
   readonly items = input<NearbyMuralItemResponse[]>([]);
   readonly muralSelected = output<NearbyMuralItemResponse>();
 
-  readonly selectedItem = signal<NearbyMuralItemResponse | null>(null);
-
   select(item: NearbyMuralItemResponse): void {
-    this.selectedItem.set(item);
     this.muralSelected.emit(item);
   }
 
