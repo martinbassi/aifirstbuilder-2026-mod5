@@ -13,6 +13,7 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { ApiError } from '../../../core/http/api-error';
 import { GeolocationService } from '../../../shared/geolocation.service';
 import { CreateMuralRequest, MuralService } from '../data/mural.service';
+import { FormsModule } from '@angular/forms';
 
 /** Same allowlist the backend accepts (Block 4) — this check is UX-only feedback, never the
  * authority: `file.type` is client-controlled and trivially spoofable. The real gate is the
@@ -33,7 +34,7 @@ const MAX_LONGITUDE = 180;
 @Component({
   selector: 'app-create-mural-form',
   standalone: true,
-  imports: [NzAlertModule, NzButtonModule, NzFormModule, NzInputModule],
+  imports: [FormsModule, NzAlertModule, NzButtonModule, NzFormModule, NzInputModule],
   templateUrl: './create-mural-form.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
