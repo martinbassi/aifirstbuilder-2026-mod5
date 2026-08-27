@@ -79,6 +79,13 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   ubicación y fecha ahora se muestran siempre por fila, sin necesidad de click (el panel de detalle
   al seleccionar, mencionado en la entrada de FEAT-001d arriba, quedó reemplazado desde el rediseño
   Card→NzList).
+- **FEAT-007 — Rehidratar sesión al recargar la página**: el rol del usuario (y por lo tanto el
+  ítem de menú "Moderación" para administradores) ya no desaparece al hacer F5. El token de sesión
+  sobrevivía al refresh, pero el usuario/rol solo vivía en memoria; ahora un nuevo endpoint
+  `GET /api/auth/session` (`[Authorize]`, sin restricción de rol) devuelve `{username, role}` de la
+  sesión actual, y `provideAppInitializer` lo consulta al arrancar la app (solo si hay un token
+  guardado) antes de resolver cualquier ruta protegida. Un token inválido/expirado sigue
+  redirigiendo a `/login` exactamente como antes, sin duplicar esa lógica.
 
 ### Fixed
 

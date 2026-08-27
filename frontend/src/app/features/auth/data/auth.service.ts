@@ -7,7 +7,7 @@ import {
   RegisterUserResponse,
 } from '../../../core/api-client/api-client.generated';
 import { toApiError } from '../../../core/http/api-error';
-import { SessionStore } from '../state/session.store';
+import { SessionStore, SessionUser } from '../state/session.store';
 
 export interface RegisterRequest {
   username: string;
@@ -80,6 +80,27 @@ export class AuthService {
         this.sessionStore.clearSession();
         return throwError(() => toApiError(error));
       }),
+    );
+  }
+
+  /**
+   * Fetches the current session's user/role from `GET /api/auth/session` and repopulates
+   * `session.store` on success — used at app startup to rehydrate the role after a page refresh
+   * (the token survives in `sessionStorage`, but `session.store.user()` starts `null` in memory).
+   * On failure, does not touch `session.store` and propagates the mapped `ApiError` — same pattern
+   * as `login()`/`register()`; no 401 handling here, that is the interceptor's job.
+   */
+  getCurrentSession(): Observable<SessionUser> {
+    return this.authClient.session().pipe(
+      map((response) => {
+        const user: SessionUser = {
+          username: response.username ?? '',
+          role: response.role,
+        };
+        this.sessionStore.setUser(user);
+        return user;
+      }),
+      catchError((error: unknown) => throwError(() => toApiError(error))),
     );
   }
 }

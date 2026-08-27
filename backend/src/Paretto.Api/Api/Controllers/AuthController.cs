@@ -2,12 +2,13 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Paretto.Api.Features.Auth.Commands;
+using Paretto.Api.Features.Auth.Queries;
 
 namespace Paretto.Api.Api.Controllers;
 
 /// <summary>
 /// Auth endpoints. Block 5 (Registro) adds `Register`; Block 6 (Login) and Block 7 (Logout) add
-/// their own actions to this same controller afterwards.
+/// their own actions to this same controller afterwards. FEAT-007 Block 1 adds `Session`.
 ///
 /// Round 2 correction (Block 5): this action used to invoke `IValidator&lt;RegisterUserCommand&gt;`
 /// by hand and catch `DuplicateAccountException` itself to build a
@@ -77,5 +78,22 @@ public class AuthController : ControllerBase
     {
         await _mediator.Send(new LogoutCommand(), cancellationToken);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Rehydrates the caller's current session (username/role) so the frontend can repopulate its
+    /// in-memory user state after a page reload (FEAT-007), without requiring a new login. Requires
+    /// a valid session ([Authorize]): the auth pipeline (SessionAuthenticationHandler) already
+    /// rejects with 401 before this action runs if there is none, so no extra logic is needed here
+    /// for that case.
+    /// </summary>
+    [HttpGet("session")]
+    [Authorize]
+    [ProducesResponseType(typeof(GetCurrentSessionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Session(CancellationToken cancellationToken)
+    {
+        var response = await _mediator.Send(new GetCurrentSessionQuery(), cancellationToken);
+        return Ok(response);
     }
 }

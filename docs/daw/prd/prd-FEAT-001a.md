@@ -5,7 +5,7 @@
 | Ticket | FEAT-001a |
 | Tracker | none |
 | Date | 2026-08-15 |
-| PRD loops | 1 |
+| PRD loops | 2 |
 
 ## Context and Problem
 
@@ -40,6 +40,11 @@ avanzar.
 - FR-07: El sistema debe almacenar cada cuenta con un campo de rol, con valor por defecto
   "Colaborador/Explorador" y "Administrador" como valor alternativo posible, sin exponer ninguna
   funcionalidad para asignarlo desde la interfaz.
+- FR-08: El sistema debe recuperar los datos de la sesión actual (usuario y rol) al arrancar la
+  aplicación, cuando existe un token de sesión almacenado pero esos datos todavía no están
+  disponibles en memoria (por ejemplo, tras recargar la página). (gap detectado en FEAT-007: el rol
+  vive solo en un signal en memoria, sin rehidratarse tras un refresh, aunque el token —y la sesión
+  server-side— sigan siendo válidos)
 
 ## Non-Functional Requirements
 
@@ -47,6 +52,10 @@ avanzar.
   (RNF-006)
 - NFR-02: La aplicación debe servirse exclusivamente sobre HTTPS. (RNF-006)
 - NFR-03: La sesión del usuario debe expirar a los 7 días de haber iniciado sesión. (RNF-006)
+- NFR-04: La resolución de rutas protegidas debe esperar a que la rehidratación de sesión (FR-08)
+  termine antes de renderizar contenido dependiente del rol, para evitar que la interfaz muestre
+  brevemente un estado incorrecto (p. ej. el menú de administrador ausente para un administrador
+  real).
 
 ## Acceptance Criteria
 
@@ -65,6 +74,15 @@ avanzar.
   el intento de login con un mensaje genérico, sin indicar cuál de los dos campos falló. (FR-05)
 - AC-06: WHEN un usuario con sesión activa cierra sesión, THE sistema SHALL invalidar su sesión,
   exigiendo autenticación nuevamente para acceder a funcionalidades protegidas. (FR-06)
+- AC-07: WHEN la aplicación arranca con un token de sesión almacenado pero sin datos de usuario en
+  memoria, THE sistema SHALL solicitar los datos de sesión actuales (usuario y rol) antes de
+  resolver cualquier ruta protegida. (FR-08, NFR-04)
+- AC-08: IF el token almacenado ya no corresponde a una sesión válida (expiró o fue invalidada),
+  THEN THE sistema SHALL limpiar la sesión y redirigir a la pantalla de login, sin mostrar contenido
+  protegido ni un mensaje adicional — mismo comportamiento que ya aplica hoy ante un 401. (FR-08)
+- AC-09: WHEN la rehidratación de sesión se completa exitosamente, THE sistema SHALL reflejar el rol
+  correcto en la interfaz (incluyendo el ítem de menú de Moderación para administradores) sin
+  requerir un nuevo login. (FR-08)
 
 ## Out of Scope
 
@@ -79,6 +97,9 @@ avanzar.
   marcado como fuera de alcance del producto en `docs/daw/prd/PRD.md`.
 - **RF-050** Pantalla de entrada según sesión (login / exploración). Depende de que exista la
   pantalla de exploración, que construye FEAT-001d — ese sub-ticket define el enrutamiento completo.
+- **Renovación/rotación de sesión (refresh tokens).** FR-08 solo recupera los datos de una sesión
+  que sigue siendo válida; no extiende su duración ni introduce un mecanismo de renovación más allá
+  de los 7 días de NFR-03.
 
 ## Risks and Mitigations
 
@@ -101,6 +122,17 @@ dispositivo robado o compartido.
 HTTPS (NFR-02). El bloqueo por intentos fallidos (RF-052) queda fuera de este sub-ticket — ver "Out
 of Scope".
 
+### Endpoint de sesión actual como superficie nueva (FR-08)
+
+**Riesgo:** un endpoint que devuelve los datos de la sesión a partir del token es un nuevo punto que
+un token robado o filtrado podría usar para obtener el rol de la cuenta.
+
+**Mitigación:** el endpoint no expone nada que la sesión ya no exponga hoy — el rol viaja en la
+respuesta de login (FR-04) sin protección adicional; FR-08 solo repite esa misma exposición en un
+punto distinto, protegido por el mismo mecanismo de sesión (NFR-01/NFR-02). No amplía el radio de lo
+que un token comprometido ya permitía. Detalle de amenazas específico a definir en el threat modeling
+de PLAN de FEAT-007.
+
 ### Ataques de fuerza bruta sobre el login
 
 **Riesgo:** sin RF-052 en este sub-ticket, el login no tiene límite de intentos.
@@ -115,3 +147,5 @@ agrega una mitigación complementaria de rate limiting básico — ver
 
 - SQL Server 2025 + EF Core para la persistencia de usuarios.
 - Ninguna dependencia de otro sub-ticket — es el primero de la cadena a→b→c→d.
+- FR-08/NFR-04 (agregado por FEAT-007) requiere un endpoint que devuelva los datos de la sesión
+  actual a partir del token — a definir en PLAN de FEAT-007.
