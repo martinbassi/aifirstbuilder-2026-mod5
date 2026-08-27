@@ -130,9 +130,9 @@ export class DiscoveryPageComponent implements OnInit {
     this.fetchNearbyMurals(center.latitude, center.longitude);
   }
 
-  /** Currently just tracked for a future "highlight on the map"/"scroll to" behavior — the
-   * spec's completion criterion for this block only requires the selection to surface a detail,
-   * which `discovery-list` already renders inline on its own selection state; wiring both
+  /** Currently just tracked for a future "highlight on the map"/"scroll to" behavior. Since
+   * FEAT-006, `discovery-list` shows title/photo/distance/location/date on every row
+   * unconditionally (no separate detail-on-selection panel or state of its own); wiring both
    * children's `muralSelected` output here keeps `discovery-page` as the single place that would
    * coordinate cross-component selection if that need ever comes up. */
   onMuralSelected(): void {

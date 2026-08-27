@@ -9,6 +9,7 @@ import {
   output,
   viewChild,
 } from '@angular/core';
+import { formatDate } from '@angular/common';
 import * as L from 'leaflet';
 import { NearbyMuralItemResponse } from '../../../core/api-client/api-client.generated';
 
@@ -229,7 +230,32 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
       .map((item) => {
         const marker = L.marker([item.latitude as number, item.longitude as number]).addTo(map);
         marker.on('click', () => this.muralSelected.emit(item));
+        marker.bindPopup(this.buildPopupContent(item));
         return marker;
       });
+  }
+
+  /**
+   * FEAT-006 (AC-10): construye el contenido del popup EXCLUSIVAMENTE vía DOM API
+   * (`createElement`/`textContent`), nunca interpolando `item.title` en un string HTML. `title` es
+   * texto libre de usuario (backend solo valida `NotEmpty`/`MaximumLength(50)`, sin sanitización
+   * HTML) — Leaflet inserta un `string` pasado a `bindPopup`/`setContent` vía `node.innerHTML =
+   * content` (confirmado en `Popup._updateContent`, leaflet-src.js), lo que sería XSS almacenado.
+   * Un `HTMLElement` en cambio se inserta vía `appendChild`, sin parsear HTML — de ahí que este
+   * método SIEMPRE deba devolver un Node, nunca un string (threat model FEAT-006, riesgo HIGH).
+   */
+  private buildPopupContent(item: NearbyMuralItemResponse): HTMLElement {
+    const container = document.createElement('div');
+
+    const titleEl = document.createElement('strong');
+    titleEl.textContent = item.title ?? '';
+
+    const dateEl = document.createElement('div');
+    dateEl.textContent = item.createdAt
+      ? formatDate(item.createdAt, 'dd/MM/yyyy HH:mm', 'en-US', 'UTC-3')
+      : '';
+
+    container.append(titleEl, dateEl);
+    return container;
   }
 }
