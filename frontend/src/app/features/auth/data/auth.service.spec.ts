@@ -3,6 +3,7 @@ import { of, throwError } from 'rxjs';
 import {
   ApiException,
   AuthClient,
+  GetCurrentSessionResponse,
   LoginResponse,
   RegisterUserResponse,
 } from '../../../core/api-client/api-client.generated';
@@ -14,6 +15,7 @@ describe('AuthService', () => {
     register: ReturnType<typeof vi.fn>;
     login: ReturnType<typeof vi.fn>;
     logout: ReturnType<typeof vi.fn>;
+    session: ReturnType<typeof vi.fn>;
   };
   let service: AuthService;
   let sessionStore: SessionStore;
@@ -23,6 +25,7 @@ describe('AuthService', () => {
       register: vi.fn(),
       login: vi.fn(),
       logout: vi.fn(),
+      session: vi.fn(),
     };
 
     TestBed.configureTestingModule({
@@ -121,5 +124,38 @@ describe('AuthService', () => {
 
     expect(receivedError).toBeDefined();
     expect((receivedError as { status: number }).status).toBe(0);
+  });
+
+  // Required test 1 (Block 3): getCurrentSession() exitoso repuebla session.store — valida AC-09.
+  it('getCurrentSession() exitoso llama a session.store.setUser con username y role de la respuesta', () => {
+    const response = new GetCurrentSessionResponse({ username: 'ana', role: 'Administrator' });
+    authClient.session.mockReturnValue(of(response));
+
+    service.getCurrentSession().subscribe();
+
+    expect(sessionStore.user()).toEqual({ username: 'ana', role: 'Administrator' });
+  });
+
+  // Required test 2 (Block 3): un error de getCurrentSession() no repuebla session.store y se propaga.
+  it('getCurrentSession() en error NO llama a setUser y propaga un ApiError', () => {
+    const apiException = new ApiException(
+      'Unauthorized',
+      401,
+      JSON.stringify({ title: 'Session expired.' }),
+      {},
+      null,
+    );
+    authClient.session.mockReturnValue(throwError(() => apiException));
+
+    let receivedError: unknown;
+
+    service.getCurrentSession().subscribe({
+      error: (error) => {
+        receivedError = error;
+      },
+    });
+
+    expect(sessionStore.user()).toBeNull();
+    expect(receivedError).toEqual({ status: 401, message: 'Session expired.' });
   });
 });

@@ -1,8 +1,13 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import {
+  ApplicationConfig,
+  provideAppInitializer,
+  provideBrowserGlobalErrorListeners,
+} from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
+import { rehydrateSessionOnStartup } from './core/bootstrap/session-rehydration.initializer';
 import { en_US, provideNzI18n } from 'ng-zorro-antd/i18n';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
 import {
@@ -39,6 +44,9 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor])),
+    // Rehidrata sessionStore.user() (rol) desde GET /api/auth/session al arrancar, antes de que el
+    // router resuelva cualquier ruta protegida (FEAT-007, NFR-04/AC-07/AC-08).
+    provideAppInitializer(rehydrateSessionOnStartup),
     // Backend local de desarrollo (Block 1, perfil `https` de launchSettings.json). Sin un archivo
     // de environments todavía (no lo introdujo Block 2) — mover a `environment.ts` es trabajo de un
     // futuro ticket que agregue configuración por entorno real (staging/producción).
