@@ -19,13 +19,21 @@
   <nz-form-item>
     <nz-form-label nzFor="mural-photo" nzRequired>Foto</nz-form-label>
     <nz-form-control>
-      <input
-        type="file"
-        id="mural-photo"
-        accept="image/jpeg,image/png,image/webp"
-        (change)="onFileSelected($event)"
-        data-testid="photo-input"
-      />
+      <nz-upload
+        nzListType="picture"
+        [nzShowUploadList]="true"
+        [nzBeforeUpload]="beforeUpload"
+        [nzFileList]="fileList()"
+        [nzMaxCount]="1"
+        (nzChange)="onUploadChange($event)"
+        nzAccept="image/jpeg,image/png,image/webp"
+        data-testid="photo-upload"
+      >
+        <button nz-button type="button">
+          <span nz-icon nzType="cloud-upload"></span>
+          Seleccionar imagen
+        </button>
+      </nz-upload>
     </nz-form-control>
   </nz-form-item>
   @if (fileError(); as message) {

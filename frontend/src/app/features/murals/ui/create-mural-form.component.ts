@@ -1,19 +1,22 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  OnDestroy,
   OnInit,
   computed,
   inject,
   signal,
 } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
+import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
+import { NzUploadChangeParam, NzUploadFile, NzUploadModule } from 'ng-zorro-antd/upload';
 import { ApiError } from '../../../core/http/api-error';
 import { GeolocationService } from '../../../shared/geolocation.service';
 import { CreateMuralRequest, MuralService } from '../data/mural.service';
-import { FormsModule } from '@angular/forms';
 
 /** Same allowlist the backend accepts (Block 4) — this check is UX-only feedback, never the
  * authority: `file.type` is client-controlled and trivially spoofable. The real gate is the
@@ -34,17 +37,30 @@ const MAX_LONGITUDE = 180;
 @Component({
   selector: 'app-create-mural-form',
   standalone: true,
-  imports: [FormsModule, NzAlertModule, NzButtonModule, NzFormModule, NzInputModule],
+  imports: [
+    FormsModule,
+    NzAlertModule,
+    NzButtonModule,
+    NzFormModule,
+    NzIconModule,
+    NzInputModule,
+    NzUploadModule,
+  ],
   templateUrl: './create-mural-form.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CreateMuralFormComponent implements OnInit {
+export class CreateMuralFormComponent implements OnInit, OnDestroy {
   private readonly muralService = inject(MuralService);
   private readonly geolocationService = inject(GeolocationService);
 
   readonly selectedFile = signal<File | null>(null);
   /** UX-only inline feedback for the file selector — see `ALLOWED_PHOTO_TYPES` above. */
   readonly fileError = signal<string | null>(null);
+  /** Backs `[nzFileList]` on `<nz-upload>` (spec-FEAT-008 Block 1) — at most 1 entry (`nzMaxCount`).
+   * Populated entirely inside `beforeUpload`, never by `nz-upload` itself: returning `false`
+   * synchronously from `nzBeforeUpload` stops the upload flow before `onStart`, the only point
+   * that would otherwise populate it. */
+  readonly fileList = signal<NzUploadFile[]>([]);
 
   readonly title = signal<string | null>(null);
   readonly latitude = signal<number | null>(null);
@@ -83,30 +99,74 @@ export class CreateMuralFormComponent implements OnInit {
     this.requestGeolocation();
   }
 
-  onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
+  /**
+   * Única fuente de alta de archivo desde `nz-upload` (spec-FEAT-008 Block 1). Class field de
+   * flecha (no un método): `nz-upload` lo invoca con un `this` distinto al de la instancia del
+   * componente (verificado contra `ng-zorro-antd-upload.mjs`), así que un método común perdería el
+   * `this` y rompería el acceso a los signals. SIEMPRE retorna `false` de forma síncrona: nunca deja
+   * pasar la subida real de `nz-upload` (FR-07), la propia función valida y arma `fileList`
+   * manualmente en el mismo paso.
+   */
+  readonly beforeUpload = (file: NzUploadFile): boolean => {
+    const rawFile = ((file as { originFileObj?: File }).originFileObj ?? file) as unknown as File;
 
-    if (!file) {
-      this.selectedFile.set(null);
-      this.fileError.set(null);
-      return;
-    }
-
-    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
-      this.selectedFile.set(null);
+    if (!ALLOWED_PHOTO_TYPES.includes(rawFile.type)) {
       this.fileError.set('El archivo debe ser una imagen JPEG, PNG o WebP.');
-      return;
+      return false;
     }
 
-    if (file.size > MAX_PHOTO_SIZE_BYTES) {
-      this.selectedFile.set(null);
+    if (rawFile.size > MAX_PHOTO_SIZE_BYTES) {
       this.fileError.set('El archivo no puede superar los 10 MB.');
-      return;
+      return false;
     }
+
+    // Replacement (spec-FEAT-008 Block 2, AC-02/NFR-01): revoke the previous entry's `thumbUrl`
+    // before overwriting `fileList` with the new one, otherwise the old Blob URL leaks for the
+    // lifetime of the page.
+    this.revokeCurrentThumbUrl();
 
     this.fileError.set(null);
-    this.selectedFile.set(file);
+    this.selectedFile.set(rawFile);
+    this.fileList.set([
+      {
+        // `nz-upload` ya adjunta un `uid` al `File` crudo antes de invocar `nzBeforeUpload`
+        // (`attachUid` en `ng-zorro-antd-upload.mjs`); el fallback sólo cubre la invocación directa
+        // desde tests, que no pasan por ese paso interno.
+        uid: (file as { uid?: string }).uid ?? Math.random().toString(36).substring(2),
+        name: file.name ?? rawFile.name,
+        status: 'done',
+        thumbUrl: URL.createObjectURL(rawFile),
+        originFileObj: rawFile,
+      },
+    ]);
+
+    return false;
+  };
+
+  /**
+   * Único punto de baja de archivo (spec-FEAT-008 Block 2, AC-03/NFR-01). A diferencia de
+   * `beforeUpload`, este SÍ llega vía `(nzChange)`: el ícono de eliminar de `nz-upload-list`
+   * dispara el flujo interno de remoción de `nz-upload` independientemente de que
+   * `nzBeforeUpload` haya devuelto `false` en el alta. Class field de flecha por el mismo motivo
+   * que `beforeUpload`: `nz-upload` lo invoca con un `this` distinto al de la instancia del
+   * componente.
+   */
+  readonly onUploadChange = (event: NzUploadChangeParam): void => {
+    if (event.type !== 'removed') {
+      return;
+    }
+
+    this.revokeCurrentThumbUrl();
+
+    this.fileList.set([]);
+    this.selectedFile.set(null);
+    this.fileError.set(null);
+  };
+
+  /** Revoca el `thumbUrl` de la entrada actual, si existe, para no dejar un Blob URL vivo cuando
+   * el usuario navega fuera del formulario con un archivo todavía seleccionado (AC-07/NFR-01). */
+  ngOnDestroy(): void {
+    this.revokeCurrentThumbUrl();
   }
 
   onTitleChange(event: Event): void {
@@ -139,7 +199,7 @@ export class CreateMuralFormComponent implements OnInit {
     this.muralService.create(request).subscribe({
       next: (data) => {
         this.submitting.set(false);
-        if (data.status === 'pending') {
+        if (data.status === 'Pending') {
           this.successMessage.set('Tu mural quedó pendiente de revisión.');
         } else {
           this.errorMessage.set(
@@ -177,5 +237,14 @@ export class CreateMuralFormComponent implements OnInit {
   private parseNumberInput(event: Event): number | null {
     const value = (event.target as HTMLInputElement).valueAsNumber;
     return Number.isNaN(value) ? null : value;
+  }
+
+  /** Revoca el `thumbUrl` de la entrada actual de `fileList`, si existe. Extraído de
+   * `beforeUpload`, `onUploadChange` y `ngOnDestroy`, que repetían el mismo chequeo antes de
+   * pisar/vaciar la lista o al destruir el componente (AC-02/AC-03/AC-07/NFR-01). */
+  private revokeCurrentThumbUrl(): void {
+    if (this.fileList().length > 0) {
+      URL.revokeObjectURL(this.fileList()[0].thumbUrl as string);
+    }
   }
 }
