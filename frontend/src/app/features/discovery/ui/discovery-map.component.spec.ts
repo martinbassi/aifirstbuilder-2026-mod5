@@ -36,7 +36,7 @@ describe('DiscoveryMapComponent', () => {
     fixture.detectChanges();
 
     const markerIcons = fixture.nativeElement.querySelectorAll(
-      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+      '.leaflet-marker-icon:not(.discovery-visitor-marker):not(.discovery-search-center-marker)',
     );
     expect(markerIcons.length).toBe(items.length);
   });
@@ -46,7 +46,7 @@ describe('DiscoveryMapComponent', () => {
     fixture.detectChanges();
 
     const markerIcons = fixture.nativeElement.querySelectorAll(
-      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+      '.leaflet-marker-icon:not(.discovery-visitor-marker):not(.discovery-search-center-marker)',
     );
     expect(markerIcons.length).toBe(0);
   });
@@ -66,7 +66,7 @@ describe('DiscoveryMapComponent', () => {
     });
 
     const markerIcons = fixture.nativeElement.querySelectorAll(
-      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+      '.leaflet-marker-icon:not(.discovery-visitor-marker):not(.discovery-search-center-marker)',
     );
     const secondIcon = markerIcons[1] as HTMLElement;
     secondIcon.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
@@ -80,7 +80,7 @@ describe('DiscoveryMapComponent', () => {
     fixture.componentRef.setInput('items', []);
     fixture.detectChanges();
     expect(
-      fixture.nativeElement.querySelectorAll('.leaflet-marker-icon:not(.discovery-visitor-marker)')
+      fixture.nativeElement.querySelectorAll('.leaflet-marker-icon:not(.discovery-visitor-marker):not(.discovery-search-center-marker)')
         .length,
     ).toBe(0);
 
@@ -89,7 +89,7 @@ describe('DiscoveryMapComponent', () => {
     fixture.detectChanges();
 
     expect(
-      fixture.nativeElement.querySelectorAll('.leaflet-marker-icon:not(.discovery-visitor-marker)')
+      fixture.nativeElement.querySelectorAll('.leaflet-marker-icon:not(.discovery-visitor-marker):not(.discovery-search-center-marker)')
         .length,
     ).toBe(1);
   });
@@ -104,7 +104,7 @@ describe('DiscoveryMapComponent', () => {
     fixture.detectChanges();
 
     const markerIcon = fixture.nativeElement.querySelector(
-      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+      '.leaflet-marker-icon:not(.discovery-visitor-marker):not(.discovery-search-center-marker)',
     ) as HTMLImageElement;
     expect(markerIcon.src).toContain('images/leaflet/marker-icon.png');
   });
@@ -302,7 +302,7 @@ describe('DiscoveryMapComponent', () => {
     fixture.detectChanges();
 
     const markerIcon = fixture.nativeElement.querySelector(
-      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+      '.leaflet-marker-icon:not(.discovery-visitor-marker):not(.discovery-search-center-marker)',
     ) as HTMLElement;
     markerIcon.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     fixture.detectChanges();
@@ -317,7 +317,7 @@ describe('DiscoveryMapComponent', () => {
     fixture.detectChanges();
 
     const markerIcon = fixture.nativeElement.querySelector(
-      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+      '.leaflet-marker-icon:not(.discovery-visitor-marker):not(.discovery-search-center-marker)',
     ) as HTMLElement;
     markerIcon.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     fixture.detectChanges();
@@ -336,7 +336,7 @@ describe('DiscoveryMapComponent', () => {
     fixture.detectChanges();
 
     const markerIcon = fixture.nativeElement.querySelector(
-      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+      '.leaflet-marker-icon:not(.discovery-visitor-marker):not(.discovery-search-center-marker)',
     ) as HTMLElement;
     markerIcon.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     fixture.detectChanges();
@@ -355,7 +355,7 @@ describe('DiscoveryMapComponent', () => {
     fixture.detectChanges();
 
     const markerIcon = fixture.nativeElement.querySelector(
-      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+      '.leaflet-marker-icon:not(.discovery-visitor-marker):not(.discovery-search-center-marker)',
     ) as HTMLElement;
     markerIcon.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     fixture.detectChanges();
@@ -379,8 +379,76 @@ describe('DiscoveryMapComponent', () => {
     }).not.toThrow();
 
     const markerIcons = fixture.nativeElement.querySelectorAll(
-      '.leaflet-marker-icon:not(.discovery-visitor-marker)',
+      '.leaflet-marker-icon:not(.discovery-visitor-marker):not(.discovery-search-center-marker)',
     );
     expect(markerIcons.length).toBe(2);
+  });
+
+  // Block 2 — marcador de centro de búsqueda (spec-FEAT-010).
+
+  // Required test: con center y searchCenter a >=50m de distancia real entre sí, aparecen AMBOS
+  // marcadores — valida AC-11.
+  it('muestra ambos marcadores cuando center y searchCenter están a >=50m de distancia (AC-11)', () => {
+    const center: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    const searchCenter: MapCenter = { latitude: -34.601, longitude: -58.4 };
+    fixture.componentRef.setInput('center', center);
+    fixture.componentRef.setInput('searchCenter', searchCenter);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.discovery-visitor-marker').length).toBe(1);
+    expect(
+      fixture.nativeElement.querySelectorAll('.discovery-search-center-marker').length,
+    ).toBe(1);
+  });
+
+  // Required test: con center y searchCenter a <50m de distancia real entre sí, solo aparece el
+  // marcador de visitante — valida AC-10.
+  it('muestra solo el marcador de visitante cuando center y searchCenter están a <50m (AC-10)', () => {
+    const center: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    const searchCenter: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    fixture.componentRef.setInput('center', center);
+    fixture.componentRef.setInput('searchCenter', searchCenter);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.discovery-visitor-marker').length).toBe(1);
+    expect(
+      fixture.nativeElement.querySelectorAll('.discovery-search-center-marker').length,
+    ).toBe(0);
+  });
+
+  // Required test: al pasar searchCenter de un valor lejano (>=50m) a uno cercano (<50m), el
+  // marcador que ya estaba en el mapa se remueve, no queda huérfano — valida AC-10/AC-09.
+  it('remueve el marcador de centro de búsqueda al pasar de lejano a cercano (AC-10/AC-09)', () => {
+    const center: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    const farSearchCenter: MapCenter = { latitude: -34.601, longitude: -58.4 };
+    fixture.componentRef.setInput('center', center);
+    fixture.componentRef.setInput('searchCenter', farSearchCenter);
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelectorAll('.discovery-search-center-marker').length,
+    ).toBe(1);
+
+    const nearSearchCenter: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    fixture.componentRef.setInput('searchCenter', nearSearchCenter);
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelectorAll('.discovery-search-center-marker').length,
+    ).toBe(0);
+  });
+
+  // Required test: sin searchCenter (null, estado inicial), no aparece ningún marcador de centro
+  // de búsqueda, solo el de visitante si center está seteado — comportamiento preexistente sin
+  // regresión.
+  it('no muestra marcador de centro de búsqueda cuando searchCenter es null (estado inicial)', () => {
+    const center: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    fixture.componentRef.setInput('center', center);
+    fixture.componentRef.setInput('searchCenter', null);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.discovery-visitor-marker').length).toBe(1);
+    expect(
+      fixture.nativeElement.querySelectorAll('.discovery-search-center-marker').length,
+    ).toBe(0);
   });
 });

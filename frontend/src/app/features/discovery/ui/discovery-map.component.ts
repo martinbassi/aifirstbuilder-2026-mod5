@@ -12,6 +12,7 @@ import {
 import { formatDate } from '@angular/common';
 import * as L from 'leaflet';
 import { NearbyMuralItemResponse } from '../../../core/api-client/api-client.generated';
+import { haversineDistanceMeters } from '../../../shared/geo-distance.util';
 
 // `_getIconUrl` no está en las definiciones de tipos públicas de Leaflet — es el workaround
 // documentado de la propia librería para bundlers ESM (esbuild/Angular 21), que sin esto resuelven
@@ -37,6 +38,10 @@ const DEFAULT_ZOOM = 14;
 const FALLBACK_CENTER: MapCenter = { latitude: -34.905830, longitude: -56.191388 };
 const TILE_LAYER_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_LAYER_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+/** Umbral de fusión del marcador de centro de búsqueda con el de "tu ubicación" (spec-FEAT-010,
+ * Block 2, FR-08/FR-09): por debajo de esta distancia se consideran "el mismo lugar" y solo se
+ * muestra el marcador de visitante; por encima, ambos. */
+const SEARCH_CENTER_PROXIMITY_THRESHOLD_METERS = 50;
 
 /** Ícono distintivo del marcador de "tu ubicación" (Block 2) — `L.divIcon` con estilos inline en
  * vez de un archivo de imagen nuevo, decisión de PLAN para no repetir el incidente de íconos
@@ -47,6 +52,19 @@ const VISITOR_ICON = L.divIcon({
   html: '<div style="width: 16px; height: 16px; border-radius: 50%; background-color: #1890ff; border: 3px solid #ffffff; box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);"></div>',
   iconSize: [16, 16],
   iconAnchor: [8, 8],
+});
+
+/** Ícono distintivo del marcador de "centro de la última búsqueda" (spec-FEAT-010, Block 2) —
+ * mismo patrón `L.divIcon` con estilos inline que `VISITOR_ICON` (evita el incidente FIX-002 de
+ * íconos como archivo perdido). Forma de PIN/GOTA, deliberadamente distinta del círculo de
+ * `VISITOR_ICON`: la distinción entre ambos marcadores no puede depender únicamente del color
+ * (hallazgo de accesibilidad del arch-auditor en PLAN). Color coral (#fe6944, primario de la
+ * paleta adoptada en FEAT-002) con borde blanco. */
+const SEARCH_CENTER_ICON = L.divIcon({
+  className: 'discovery-search-center-marker',
+  html: '<div style="width: 16px; height: 16px; background-color: #fe6944; border: 2px solid #ffffff; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);"></div>',
+  iconSize: [16, 16],
+  iconAnchor: [8, 16],
 });
 
 /**
@@ -71,6 +89,11 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
    * mural recibido y, en último caso, a un centro fijo — nunca lanza (decisión de este bloque,
    * documentada porque el spec la dejó abierta). */
   readonly center = input<MapCenter | null>(null);
+  /** Centro exacto usado en la última consulta de murales cercanos exitosa (spec-FEAT-010, Block 1
+   * de `discovery-page.component.ts`, FR-07). `null` hasta la primera consulta exitosa — antes de
+   * eso no aparece ningún marcador de centro de búsqueda (`applySearchCenterMarker()` lo trata
+   * igual que "removido"). */
+  readonly searchCenter = input<MapCenter | null>(null);
 
   readonly muralSelected = output<NearbyMuralItemResponse>();
   /** Emite el centro vigente del mapa cuando el USUARIO lo mueve o hace zoom (arrastre/scroll) —
@@ -87,6 +110,11 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
   /** Marcador distintivo de "tu ubicación" (Block 2) — se crea una única vez en `applyCenter()` y
    * a partir de ahí solo se reposiciona con `.setLatLng()`, nunca se destruye y recrea. */
   private visitorMarker: L.Marker | null = null;
+  /** Marcador del centro de la última búsqueda (spec-FEAT-010, Block 2) — a diferencia de
+   * `visitorMarker` (permanente una vez creado), este tiene visibilidad CONDICIONAL: se
+   * agrega/quita del mapa según el umbral `SEARCH_CENTER_PROXIMITY_THRESHOLD_METERS`, gestionado
+   * enteramente por `applySearchCenterMarker()`. */
+  private searchCenterMarker: L.Marker | null = null;
   /** Guarda anti-loop de `mapMoved` (Block 3): `applyCenter()` la fija en `true` justo antes de
    * `map.setView(...)`, la única vía por la que este componente mueve el mapa. `setView()` dispara
    * `moveend` igual que un arrastre real del usuario — sin esta guarda, cada recentrado
@@ -124,6 +152,21 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
       }
       this.applyCenter(center);
     });
+
+    // Reacciona a cambios de `center()` o `searchCenter()` DESPUÉS del render inicial (mismo punto
+    // del ciclo de vida que el effect de arriba) para agregar/quitar/reposicionar el marcador de
+    // centro de búsqueda (spec-FEAT-010, Block 2). A diferencia del effect de `applyCenter()`, este
+    // corre aunque `center()` sea `null` — la máquina de estados de `applySearchCenterMarker()`
+    // trata ese caso como "siempre lo bastante lejos" (no hay marcador de visitante con el que
+    // fusionarse), así que no puede early-return antes de leerlo.
+    effect(() => {
+      this.center();
+      this.searchCenter();
+      if (!this.map) {
+        return;
+      }
+      this.applySearchCenterMarker();
+    });
   }
 
   ngAfterViewInit(): void {
@@ -145,6 +188,10 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
     // `addTo`. No reordenar sin volver a confirmar ese comportamiento de Leaflet.
     L.tileLayer(TILE_LAYER_URL, { attribution: TILE_LAYER_ATTRIBUTION }).addTo(this.map);
     this.applyCenter(this.resolveCenter());
+    // Mismo criterio que `applyCenter()` arriba: la aplicación inicial se hace por llamada directa
+    // (lee el valor vigente de `searchCenter()`), no vía el `effect()` del constructor — ese solo
+    // cubre cambios posteriores.
+    this.applySearchCenterMarker();
     this.renderMarkers(this.items());
   }
 
@@ -199,6 +246,43 @@ export class DiscoveryMapComponent implements AfterViewInit, OnDestroy {
       // distinguible por su propia clase (`discovery-visitor-marker`, que Leaflet concatena, no
       // reemplaza) — los selectores que necesiten excluirlo usan `:not(.discovery-visitor-marker)`.
       this.visitorMarker = L.marker(latLng, { icon: VISITOR_ICON }).addTo(this.map);
+    }
+  }
+
+  /** Máquina de estados del marcador de centro de búsqueda (spec-FEAT-010, Block 2). A diferencia
+   * de `visitorMarker` (permanente una vez creado en `applyCenter()`), este marcador tiene
+   * visibilidad CONDICIONAL — se agrega y quita del mapa según
+   * `SEARCH_CENTER_PROXIMITY_THRESHOLD_METERS`, no solo se reposiciona. Requiere `this.map` ya
+   * creado, mismo guard no-op seguro que `applyCenter()`. */
+  private applySearchCenterMarker(): void {
+    if (!this.map) {
+      return;
+    }
+
+    const searchCenter = this.searchCenter();
+    if (!searchCenter) {
+      if (this.searchCenterMarker) {
+        this.searchCenterMarker.remove();
+        this.searchCenterMarker = null;
+      }
+      return;
+    }
+
+    const center = this.center();
+    const farEnough =
+      center === null ||
+      haversineDistanceMeters(center, searchCenter) >= SEARCH_CENTER_PROXIMITY_THRESHOLD_METERS;
+
+    if (farEnough) {
+      const latLng = this.toLatLng(searchCenter);
+      if (this.searchCenterMarker) {
+        this.searchCenterMarker.setLatLng(latLng);
+      } else {
+        this.searchCenterMarker = L.marker(latLng, { icon: SEARCH_CENTER_ICON }).addTo(this.map);
+      }
+    } else if (this.searchCenterMarker) {
+      this.searchCenterMarker.remove();
+      this.searchCenterMarker = null;
     }
   }
 
