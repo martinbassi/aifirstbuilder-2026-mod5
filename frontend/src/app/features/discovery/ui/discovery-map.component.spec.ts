@@ -451,4 +451,60 @@ describe('DiscoveryMapComponent', () => {
       fixture.nativeElement.querySelectorAll('.discovery-search-center-marker').length,
     ).toBe(0);
   });
+
+  // Required test (VERIFY loop, coverage): al pasar searchCenter de un valor lejano (>=50m) a OTRO
+  // valor también lejano pero distinto, el marcador de centro de búsqueda existente se reposiciona
+  // (rama `setLatLng`), en vez de duplicarse o recrearse — valida la rama de
+  // `applySearchCenterMarker()` descrita en spec-FEAT-010 Block 2, paso 3 del ciclo de vida
+  // explícito, sin test dedicado en la lista original de "Required tests".
+  it('reposiciona el marcador de centro de búsqueda en vez de duplicarlo cuando searchCenter cambia a otro valor lejano', () => {
+    const center: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    const firstFarSearchCenter: MapCenter = { latitude: -34.601, longitude: -58.4 };
+    fixture.componentRef.setInput('center', center);
+    fixture.componentRef.setInput('searchCenter', firstFarSearchCenter);
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelectorAll('.discovery-search-center-marker').length,
+    ).toBe(1);
+
+    const secondFarSearchCenter: MapCenter = { latitude: -34.602, longitude: -58.4 };
+    fixture.componentRef.setInput('searchCenter', secondFarSearchCenter);
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelectorAll('.discovery-search-center-marker').length,
+    ).toBe(1);
+
+    const searchCenterMarker = (
+      component as unknown as { searchCenterMarker: L.Marker | null }
+    ).searchCenterMarker;
+    expect(searchCenterMarker).not.toBeNull();
+    const latLng = searchCenterMarker!.getLatLng();
+    expect(latLng.lat).toBeCloseTo(secondFarSearchCenter.latitude, 5);
+    expect(latLng.lng).toBeCloseTo(secondFarSearchCenter.longitude, 5);
+  });
+
+  // Required test (VERIFY loop, coverage): al pasar searchCenter de un valor lejano a `null`, el
+  // marcador de centro de búsqueda se remueve del mapa (rama de remoción de
+  // `applySearchCenterMarker()`), sin afectar al marcador de visitante — valida la otra rama
+  // descrita en spec-FEAT-010 Block 2, paso 4 del ciclo de vida explícito, sin test dedicado en la
+  // lista original de "Required tests".
+  it('remueve el marcador de centro de búsqueda cuando searchCenter vuelve a null', () => {
+    const center: MapCenter = { latitude: -34.6, longitude: -58.4 };
+    const farSearchCenter: MapCenter = { latitude: -34.601, longitude: -58.4 };
+    fixture.componentRef.setInput('center', center);
+    fixture.componentRef.setInput('searchCenter', farSearchCenter);
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelectorAll('.discovery-search-center-marker').length,
+    ).toBe(1);
+
+    fixture.componentRef.setInput('searchCenter', null);
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelectorAll('.discovery-search-center-marker').length,
+    ).toBe(0);
+    expect(fixture.nativeElement.querySelectorAll('.discovery-visitor-marker').length).toBe(1);
+  });
 });

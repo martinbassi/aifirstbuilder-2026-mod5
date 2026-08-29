@@ -13,6 +13,13 @@
 - `frontend/src/app/features/discovery/ui/discovery-map.component.ts`
 - `frontend/src/app/shared/geo-distance.util.ts`
 
+## Re-scan (loop correctivo VERIFY→CODE, 2026-08-29)
+
+Se agregaron 2 tests a `discovery-map.component.spec.ts` (cobertura de dos ramas de
+`applySearchCenterMarker()` no ejercitadas). Sin cambios de código de producción (`git diff --stat`
+sobre `discovery-map.component.ts` vacío). `npm audit --audit-level=high`: 0 vulnerabilidades. Sin
+cambios al veredicto: **PASSED**.
+
 ## Resultado
 
 ```
