@@ -16,6 +16,7 @@ import {
   CloseCircleOutline,
   CloudUploadOutline,
   CompassOutline,
+  DeleteOutline,
   EnvironmentOutline,
   ExclamationCircleOutline,
   GoogleOutline,
@@ -85,6 +86,10 @@ export const appConfig: ApplicationConfig = {
       // registró — el ícono de fecha estaba roto en producción (mismo patrón que MuralsClient/
       // DiscoveryClient arriba: sin este registro, `IconNotFoundError` en tiempo de ejecución).
       CalendarOutline,
+      // Ícono de eliminar de nz-upload-list (create-mural-form, FEAT-008 Block 1): con
+      // nzListType="picture" renderiza este botón de forma incondicional aunque el click todavía
+      // no tenga handler.
+      DeleteOutline,
     ]),
   ],
 };

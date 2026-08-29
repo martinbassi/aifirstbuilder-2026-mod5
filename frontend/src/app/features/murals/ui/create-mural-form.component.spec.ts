@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { provideNzIconsTesting } from 'ng-zorro-antd/icon/testing';
+import { NzUploadFile } from 'ng-zorro-antd/upload';
 import { of, throwError } from 'rxjs';
 import { CreateMuralResponse } from '../../../core/api-client/api-client.generated';
 import { GeolocationService } from '../../../shared/geolocation.service';
@@ -6,15 +8,16 @@ import { MuralService } from '../data/mural.service';
 import { CreateMuralFormComponent } from './create-mural-form.component';
 
 /**
- * Builds a synthetic file-input `change` Event carrying `file` in `target.files`, the same shape
- * `onFileSelected` reads from a real `<input type="file">`. Used instead of driving a real file
- * picker (not simulable in jsdom) — same "call the handler directly" style already used by
- * `login-form.component.spec.ts` (`component.form.setValue(...)` + `component.submit()`).
+ * `beforeUpload` es el único punto de alta de archivo desde Block 1 (`nz-upload` con
+ * `nzBeforeUpload` devolviendo `false` de forma síncrona nunca dispara `nzChange` para el archivo
+ * nuevo — ver Logic de spec-FEAT-008 Block 1). Los tests llaman a `beforeUpload` directamente en
+ * vez de simular un file picker real (no simulable en jsdom), pasando el `File` tal cual: es
+ * exactamente lo que `nz-upload` le pasa en producción (`ng-zorro-antd-upload.mjs` invoca
+ * `beforeUpload` con el `File` crudo, no con un `NzUploadFile` envuelto — `originFileObj` sólo
+ * existe si algo más arma la entrada a mano).
  */
-function fileChangeEvent(file: File | null): Event {
-  const input = document.createElement('input');
-  Object.defineProperty(input, 'files', { value: file ? [file] : [] });
-  return { target: input } as unknown as Event;
+function asUploadFile(file: File): NzUploadFile {
+  return file as unknown as NzUploadFile;
 }
 
 function numberInputEvent(value: number): Event {
@@ -83,12 +86,42 @@ describe('CreateMuralFormComponent', () => {
       providers: [
         { provide: MuralService, useValue: muralService },
         { provide: GeolocationService, useValue: geolocationService },
+        // nz-upload-list con nzListType="picture" renderiza incondicionalmente sus íconos (upload
+        // button, delete, picture/file placeholder) — sin un registro de íconos, NzIconService
+        // lanza IconNotFoundError apenas se hace detectChanges(). provideNzIconsTesting() registra
+        // el set completo de @ant-design/icons-angular en vez de listar uno por uno (patrón usado
+        // por login-form.component.spec.ts/register-form.component.spec.ts para íconos puntuales;
+        // acá conviene el set completo porque nz-upload-list decide sus propios íconos
+        // internamente, no los elige este componente).
+        provideNzIconsTesting(),
       ],
     });
   });
 
-  // Required test 1: archivo oversized → error inline, "Guardar" deshabilitado (AC-02).
-  it('rechaza un archivo oversized con error inline y deshabilita Guardar', () => {
+  // Required test (Block 1, AC-01): archivo válido (JPEG ≤10MB) → preview inmediato.
+  it('selecciona un archivo válido y muestra el preview inmediatamente', () => {
+    stubGeolocation(geolocationService, 'success');
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    const validFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
+
+    const result = component.beforeUpload(asUploadFile(validFile));
+    fixture.detectChanges();
+
+    expect(result).toBe(false);
+    expect(component.fileList()).toHaveLength(1);
+    expect(component.fileList()[0].thumbUrl).toBeTruthy();
+    expect(component.fileError()).toBeNull();
+    const previewImg: HTMLImageElement = fixture.nativeElement.querySelector(
+      '[data-testid="photo-upload"] img',
+    );
+    expect(previewImg).toBeTruthy();
+  });
+
+  // Required test (Block 1, AC-04): archivo >10MB → error inline, sin preview.
+  it('rechaza un archivo oversized con error inline y no arma preview', () => {
     stubGeolocation(geolocationService, 'success');
     const fixture = TestBed.createComponent(CreateMuralFormComponent);
     const component = fixture.componentInstance;
@@ -97,39 +130,47 @@ describe('CreateMuralFormComponent', () => {
     const oversizedFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
     Object.defineProperty(oversizedFile, 'size', { value: 11 * 1024 * 1024 });
 
-    component.onFileSelected(fileChangeEvent(oversizedFile));
+    const result = component.beforeUpload(asUploadFile(oversizedFile));
     fixture.detectChanges();
 
-    expect(component.fileError()).toBeTruthy();
-    expect(component.canSubmit()).toBe(false);
-    const errorEl: HTMLElement = fixture.nativeElement.querySelector(
-      '[data-testid="file-error-message"]',
-    );
-    expect(errorEl).toBeTruthy();
+    expect(result).toBe(false);
+    expect(component.fileError()).toBe('El archivo no puede superar los 10 MB.');
+    expect(component.fileList()).toHaveLength(0);
+    const previewImg = fixture.nativeElement.querySelector('[data-testid="photo-upload"] img');
+    expect(previewImg).toBeFalsy();
     const submitButton: HTMLButtonElement = fixture.nativeElement.querySelector(
       '[data-testid="submit-button"]',
     );
     expect(submitButton.disabled).toBe(true);
   });
 
-  // Required test 2: archivo no-imagen → error inline, "Guardar" deshabilitado (AC-01, camino inverso).
-  it('rechaza un archivo no-imagen con error inline y deshabilita Guardar', () => {
+  // Required test (Block 1, AC-05): archivo de tipo inválido (application/pdf) → error inline, sin preview.
+  it('rechaza un archivo de tipo inválido con error inline y no arma preview', () => {
     stubGeolocation(geolocationService, 'success');
     const fixture = TestBed.createComponent(CreateMuralFormComponent);
     const component = fixture.componentInstance;
     fixture.detectChanges();
 
-    const notAnImage = new File(['not an image'], 'wall.txt', { type: 'text/plain' });
+    const invalidTypeFile = new File(['%PDF-1.4'], 'wall.pdf', { type: 'application/pdf' });
 
-    component.onFileSelected(fileChangeEvent(notAnImage));
+    const result = component.beforeUpload(asUploadFile(invalidTypeFile));
     fixture.detectChanges();
 
-    expect(component.fileError()).toBeTruthy();
-    expect(component.canSubmit()).toBe(false);
-    const errorEl: HTMLElement = fixture.nativeElement.querySelector(
-      '[data-testid="file-error-message"]',
+    expect(result).toBe(false);
+    expect(component.fileError()).toBe('El archivo debe ser una imagen JPEG, PNG o WebP.');
+    expect(component.fileList()).toHaveLength(0);
+  });
+
+  // Required test (Block 1, AC-08): sin archivo seleccionado → "Guardar" deshabilitado.
+  it('deshabilita Guardar cuando no hay ningún archivo seleccionado', () => {
+    stubGeolocation(geolocationService, 'success');
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    fixture.detectChanges();
+
+    const submitButton: HTMLButtonElement = fixture.nativeElement.querySelector(
+      '[data-testid="submit-button"]',
     );
-    expect(errorEl).toBeTruthy();
+    expect(submitButton.disabled).toBe(true);
   });
 
   // Required test 3: geolocalización exitosa → lat/lng se completan solos (AC-03).
@@ -164,8 +205,8 @@ describe('CreateMuralFormComponent', () => {
     expect(longitudeInput).toBeTruthy();
 
     // El resto del formulario (selector de foto) sigue disponible.
-    const photoInput = fixture.nativeElement.querySelector('[data-testid="photo-input"]');
-    expect(photoInput).toBeTruthy();
+    const photoUpload = fixture.nativeElement.querySelector('[data-testid="photo-upload"]');
+    expect(photoUpload).toBeTruthy();
   });
 
   // Required test 5: ingreso manual válido → "Guardar" habilitado (AC-05).
@@ -180,7 +221,7 @@ describe('CreateMuralFormComponent', () => {
     expect(component.canSubmit()).toBe(false);
 
     const validFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
-    component.onFileSelected(fileChangeEvent(validFile));
+    component.beforeUpload(asUploadFile(validFile));
     component.onTitleChange(titleInputEvent('Mural de prueba'));
     component.onLatitudeChange(numberInputEvent(-34.6));
     component.onLongitudeChange(numberInputEvent(-58.4));
@@ -206,7 +247,7 @@ describe('CreateMuralFormComponent', () => {
     await flushGeolocation(fixture);
 
     const validFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
-    component.onFileSelected(fileChangeEvent(validFile));
+    component.beforeUpload(asUploadFile(validFile));
     component.onTitleChange(titleInputEvent('Mural de prueba'));
     fixture.detectChanges();
 
@@ -234,7 +275,7 @@ describe('CreateMuralFormComponent', () => {
     await flushGeolocation(fixture);
 
     const validFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
-    component.onFileSelected(fileChangeEvent(validFile));
+    component.beforeUpload(asUploadFile(validFile));
     component.onTitleChange(titleInputEvent('Mural de prueba'));
     fixture.detectChanges();
 
