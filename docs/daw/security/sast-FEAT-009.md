@@ -19,6 +19,14 @@
   `ApproveMuralTests.cs`, `RejectMuralTests.cs`, `DiscoveryControllerTests.cs`)
 - `Paretto.Domain.csproj`, `Paretto.Infrastructure.csproj`
 
+## Re-scan (loop correctivo VERIFY→CODE, 2026-08-29)
+
+Se agregó `backend/tests/Paretto.Api.Tests/AdrDocumentationTests.cs` (test que faltaba para
+AC-08/FR-08, hallazgo de VERIFY). Es código de test que lee un archivo de ruta fija (resuelta desde
+`AppContext.BaseDirectory`, sin input de usuario) y hace comparaciones de string — sin secretos, sin
+inyección, sin superficie nueva. `dotnet list package --vulnerable --include-transitive` re-corrido:
+0 vulnerabilidades. Sin cambios al veredicto: **PASSED**.
+
 ## Resultado
 
 ```
