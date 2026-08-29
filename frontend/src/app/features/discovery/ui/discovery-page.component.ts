@@ -72,6 +72,16 @@ export class DiscoveryPageComponent implements OnInit {
   readonly showSearchAreaButton = signal(false);
   readonly lastMapCenter = signal<MapCenter | null>(null);
 
+  /** Coordenadas exactas usadas en la última consulta de murales cercanos EXITOSA (carga inicial o
+   * "buscar en esta área") — spec Block 1 de spec-FEAT-010 (FR-07/AC-09). Se setea únicamente
+   * dentro del callback `next` de `fetchNearbyMurals()`, nunca en los 3 call sites que lo invocan,
+   * para no duplicar la asignación. El callback `error` no la toca: conserva su último valor válido
+   * (o `null` si nunca hubo una consulta exitosa) ante un fallo (AC-12), misma asimetría que ya
+   * tiene `showSearchAreaButton` en ese mismo bloque. `discovery-map.component.ts` (Block 2) la
+   * consume para decidir si fusiona este marcador con el de "tu ubicación" o los muestra por
+   * separado. */
+  readonly lastSearchCenter = signal<MapCenter | null>(null);
+
   readonly canSearchManually = computed(() => {
     const latitude = this.manualLatitude();
     const longitude = this.manualLongitude();
@@ -164,6 +174,9 @@ export class DiscoveryPageComponent implements OnInit {
         // Oculta "Buscar en esta área" (Block 3) al asentarse la consulta — no-op si el botón ya
         // estaba oculto (geolocalización inicial o búsqueda manual, que no lo muestran).
         this.showSearchAreaButton.set(false);
+        // Único choke point donde se actualiza lastSearchCenter (spec-FEAT-010, Block 1) — no en
+        // los 3 call sites que invocan fetchNearbyMurals, para no duplicar la asignación.
+        this.lastSearchCenter.set({ latitude, longitude });
       },
       error: (error: ApiError) => {
         this.loading.set(false);

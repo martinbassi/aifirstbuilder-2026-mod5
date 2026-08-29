@@ -264,4 +264,48 @@ describe('DiscoveryPageComponent', () => {
     expect(fixture.componentInstance.items()).toEqual(initialItems);
     expect(fixture.componentInstance.showSearchAreaButton()).toBe(false);
   });
+
+  // Block 1 (spec-FEAT-010) — signal `lastSearchCenter`.
+
+  // Required test: tras una consulta exitosa, lastSearchCenter() queda seteado con las coordenadas
+  // exactas usadas en esa consulta — valida AC-09 (la mitad del signal).
+  it('tras una consulta exitosa, lastSearchCenter() queda seteado con las coordenadas usadas (AC-09)', async () => {
+    geolocationService.getCurrentPosition.mockReturnValue(
+      Promise.resolve({ latitude: -34.6037, longitude: -58.3816 }),
+    );
+    discoveryService.getNearbyMurals.mockReturnValue(of([buildItem()]));
+
+    const fixture = TestBed.createComponent(DiscoveryPageComponent);
+    fixture.detectChanges();
+    await flushMicrotasks(fixture);
+
+    expect(fixture.componentInstance.lastSearchCenter()).toEqual({
+      latitude: -34.6037,
+      longitude: -58.3816,
+    });
+  });
+
+  // Required test: si la consulta falla, lastSearchCenter() conserva el valor que tenía antes de la
+  // consulta fallida (o null si nunca hubo una exitosa) — valida AC-12.
+  it('si la consulta falla, lastSearchCenter() conserva su último valor válido (AC-12)', async () => {
+    const initialItems = [buildItem()];
+    const fixture = await setupWithSearchAreaButtonVisible(initialItems);
+
+    expect(fixture.componentInstance.lastSearchCenter()).toEqual({
+      latitude: -34.6037,
+      longitude: -58.3816,
+    });
+
+    discoveryService.getNearbyMurals.mockReturnValue(
+      throwError(() => ({ status: 500, message: 'Ocurrió un error inesperado. Intentá nuevamente.' })),
+    );
+
+    fixture.componentInstance.searchThisArea();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.lastSearchCenter()).toEqual({
+      latitude: -34.6037,
+      longitude: -58.3816,
+    });
+  });
 });
