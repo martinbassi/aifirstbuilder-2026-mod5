@@ -73,8 +73,7 @@ public class DiscoveryControllerTests : IClassFixture<WebApplicationFactory<Prog
         {
             UserId = Guid.NewGuid(),
             PhotoBlobName = $"{Guid.NewGuid()}.jpg",
-            Latitude = latitude,
-            Longitude = longitude,
+            Location = Mural.CreateLocation(latitude, longitude),
             Status = MuralStatus.Published,
         };
         db.Murals.Add(mural);
@@ -116,6 +115,30 @@ public class DiscoveryControllerTests : IClassFixture<WebApplicationFactory<Prog
         var rejectedResponse = await client.GetAsync($"/api/discovery/nearby-murals?lat={OriginLat}&lng={OriginLon}&radiusKm=5");
 
         Assert.Equal(HttpStatusCode.TooManyRequests, rejectedResponse.StatusCode);
+    }
+
+    // FEAT-009 (Block 3): valida end-to-end (vía el endpoint HTTP real, no Mural.CreateLocation en
+    // aislamiento) que DiscoveryMappingConfig sigue mapeando Latitude/Longitude en el eje correcto
+    // sin haber tocado ese archivo. Usa coordenadas claramente distinguibles (|lat| != |lng|) para
+    // que un swap de ejes accidental en cualquier punto del pipeline (Mural.Location -> Mapster ->
+    // JSON) se detecte de forma inequívoca — mitigación final de threat model R2.
+    [Fact]
+    public async Task Nearby_mural_response_exposes_latitude_and_longitude_in_the_correct_field_not_swapped()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString());
+        await SeedPublishedMuralAsync(factory, OriginLat, OriginLon);
+
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/discovery/nearby-murals?lat={OriginLat}&lng={OriginLon}&radiusKm=5");
+        var raw = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Expected 200, got {response.StatusCode}: {raw}");
+
+        var items = JsonDocument.Parse(raw).RootElement.GetProperty("items");
+        Assert.True(items.GetArrayLength() > 0);
+        Assert.Equal(OriginLat, items[0].GetProperty("latitude").GetDouble());
+        Assert.Equal(OriginLon, items[0].GetProperty("longitude").GetDouble());
     }
 
     // FIX-003: GetNearbyMuralsTests (Block 2) invoca el Handler directo, sin pasar por
