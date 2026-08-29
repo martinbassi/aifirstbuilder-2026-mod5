@@ -200,8 +200,9 @@ public class CreateMuralCommandHandler : IRequestHandler<CreateMuralCommand, Cre
             UserId = userId,
             Title = request.Title,
             PhotoBlobName = blobName,
-            Latitude = request.Latitude,
-            Longitude = request.Longitude,
+            // Mural.CreateLocation es el único punto del código C# que decide el orden de ejes
+            // (FEAT-009, threat model R2) — nunca se construye un Point a mano acá.
+            Location = Mural.CreateLocation(request.Latitude, request.Longitude),
             // Clean and Inconclusive both leave the mural Pending (FR-08/FR-09/FR-10); only Nsfw
             // is Rejected.
             Status = scanResult == NsfwScanResult.Nsfw ? MuralStatus.Rejected : MuralStatus.Pending,

@@ -6,4 +6,17 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!--
+    FEAT-009 (migrar la búsqueda de murales cercanos a `geography`): `Mural.Location` es un `Point`
+    de NetTopologySuite. Es una librería de geometría pura (sin dependencia de EF Core/MediatR ni de
+    ningún motor de base de datos concreto), por eso vive en Paretto.Domain y no en
+    Paretto.Infrastructure — el mapeo a `geography` de SQL Server (que sí depende de EF Core) es
+    responsabilidad de `Microsoft.EntityFrameworkCore.SqlServer.NetTopologySuite`, referenciado en
+    Paretto.Infrastructure.csproj. Justificado en prd-FEAT-009.md como el objetivo declarado del
+    ticket.
+  -->
+  <ItemGroup>
+    <PackageReference Include="NetTopologySuite" Version="2.6.0" />
+  </ItemGroup>
+
 </Project>

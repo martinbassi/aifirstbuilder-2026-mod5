@@ -35,6 +35,20 @@
   </ItemGroup>
 
   <!--
+    FEAT-009 (migrar la búsqueda de murales cercanos a `geography`): mapea `Mural.Location`
+    (`NetTopologySuite.Geometries.Point`, definido en Paretto.Domain) a la columna `geography` de
+    SQL Server vía EF Core — sin este paquete, el proveedor `Microsoft.EntityFrameworkCore.SqlServer`
+    no sabe traducir el tipo `Point` (falla al construir el modelo, ver
+    AppDbContextFactoryTests/MuralPersistenceTests). Misma versión que el resto de
+    `Microsoft.EntityFrameworkCore.*` (10.0.11), la última estable en nuget.org para este stack.
+    Justificado en prd-FEAT-009.md como el objetivo declarado del ticket (no hay alternativa dentro
+    del stack actual para modelar `geography` vía EF Core).
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer.NetTopologySuite" Version="10.0.11" />
+  </ItemGroup>
+
+  <!--
     Block 2 (Storage: almacenamiento de fotos): AzureBlobStorageService needs BlobServiceClient /
     BlobContainerClient / BlobSasBuilder. 12.29.1 is the latest stable release on nuget.org (not a
     beta), the first version whose dependency graph explicitly targets net10.0, and was verified

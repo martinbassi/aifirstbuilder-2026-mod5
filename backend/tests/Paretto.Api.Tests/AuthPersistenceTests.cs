@@ -36,7 +36,11 @@ public class AuthPersistenceTests
     private static AppDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlServer(GetConnectionString())
+            // FEAT-009: AppDbContext ahora mapea Mural.Location (Point de NetTopologySuite) —
+            // sin .UseNetTopologySuite() el proveedor de SqlServer no puede construir el modelo,
+            // aunque este archivo no toque nada de Mural (mismo síntoma que Program.cs/
+            // AppDbContextFactory.cs, cualquier AppDbContext construido a mano lo necesita).
+            .UseSqlServer(GetConnectionString(), sqlServerOptions => sqlServerOptions.UseNetTopologySuite())
             .Options;
 
         return new AppDbContext(options);
