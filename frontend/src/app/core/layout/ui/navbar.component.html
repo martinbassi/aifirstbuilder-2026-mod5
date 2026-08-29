@@ -1,6 +1,4 @@
 <header class="navbar">
-  <span class="navbar-title" data-testid="navbar-title">{{ title() }}</span>
-
   <button
     type="button"
     class="navbar-toggle"
@@ -8,9 +6,7 @@
     [attr.aria-label]="layoutStore.collapsed() ? 'Expandir menú' : 'Contraer menú'"
     (click)="layoutStore.toggle()"
   >
-    <nz-icon
-      [nzType]="layoutStore.collapsed() ? 'menu-unfold' : 'menu-fold'"
-      nzTheme="outline"
-    />
+    <nz-icon [nzType]="layoutStore.collapsed() ? 'menu-unfold' : 'menu-fold'" nzTheme="outline" />
   </button>
+  <span class="navbar-title" data-testid="navbar-title">{{ title() }}</span>
 </header>

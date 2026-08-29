@@ -1,97 +1,99 @@
-<form (ngSubmit)="submit()" data-testid="create-mural-form">
-  @if (successMessage(); as message) {
-    <nz-alert nzType="success" [nzMessage]="message" nzShowIcon data-testid="success-message" />
-  }
+<div class="form-container">
+  <form (ngSubmit)="submit()" data-testid="create-mural-form" nzLayout="vertical">
+    <nz-form-item>
+      <nz-form-label nzFor="mural-photo" nzRequired>Foto</nz-form-label>
+      <nz-form-control>
+        <nz-upload
+          nzListType="picture"
+          [nzShowUploadList]="true"
+          [nzBeforeUpload]="beforeUpload"
+          [nzFileList]="fileList()"
+          [nzMaxCount]="1"
+          (nzChange)="onUploadChange($event)"
+          nzAccept="image/jpeg,image/png,image/webp"
+          data-testid="photo-upload"
+        >
+          <button nz-button type="button">
+            <span nz-icon nzType="cloud-upload"></span>
+            Seleccionar imagen
+          </button>
+        </nz-upload>
+      </nz-form-control>
+    </nz-form-item>
 
-  @if (errorMessage(); as message) {
-    <nz-alert nzType="error" [nzMessage]="message" nzShowIcon data-testid="error-message" />
+    <nz-form-item>
+      <nz-form-label nzFor="mural-title" nzRequired>Título</nz-form-label>
+      <nz-form-control>
+        <input
+          nz-input
+          id="mural-title"
+          [value]="title()"
+          (input)="onTitleChange($event)"
+          data-testid="title-input"
+        />
+      </nz-form-control>
+    </nz-form-item>
+
+    @if (manualLocationRequired()) {
+      <nz-form-item>
+        <nz-form-label nzFor="mural-latitude" nzRequired>Latitud</nz-form-label>
+        <nz-form-control>
+          <input
+            nz-input
+            type="number"
+            step="any"
+            id="mural-latitude"
+            [value]="latitude()"
+            (input)="onLatitudeChange($event)"
+            data-testid="latitude-input"
+          />
+        </nz-form-control>
+      </nz-form-item>
+      <nz-form-item>
+        <nz-form-label nzFor="mural-longitude" nzRequired>Longitud</nz-form-label>
+        <nz-form-control>
+          <input
+            nz-input
+            type="number"
+            step="any"
+            id="mural-longitude"
+            [value]="longitude()"
+            (input)="onLongitudeChange($event)"
+            data-testid="longitude-input"
+          />
+        </nz-form-control>
+      </nz-form-item>
+    } @else {
+      <nz-form-item>
+        <nz-form-label nzFor="location-preview">Confirmación de la ubicación</nz-form-label>
+        <nz-alert
+          nzType="info"
+          nzMessage="Estás aquí?"
+          nzDescription="Detectamos tu ubicación automáticamente. En caso de que no sea correcta, puedes ingresarla manualmente."
+          nzShowIcon
+        />
+        <!--<nz-form-control>
+          <input
+            nz-input
+            id="mural-location"
+            [value]="'Obteniendo ubicación...' "
+            disabled
+            data-testid="location-input"
+          />
+        </nz-form-control> -->
+        <div id="location-preview" class="location-preview"></div>
+      </nz-form-item>
+    }
+
     <button
       nz-button
-      type="button"
-      (click)="retry()"
+      nzType="primary"
+      type="submit"
+      [disabled]="!canSubmit()"
       [nzLoading]="submitting()"
-      data-testid="retry-button"
+      data-testid="submit-button"
     >
-      Reintentar
+      Guardar
     </button>
-  }
-
-  <nz-form-item>
-    <nz-form-label nzFor="mural-photo" nzRequired>Foto</nz-form-label>
-    <nz-form-control>
-      <nz-upload
-        nzListType="picture"
-        [nzShowUploadList]="true"
-        [nzBeforeUpload]="beforeUpload"
-        [nzFileList]="fileList()"
-        [nzMaxCount]="1"
-        (nzChange)="onUploadChange($event)"
-        nzAccept="image/jpeg,image/png,image/webp"
-        data-testid="photo-upload"
-      >
-        <button nz-button type="button">
-          <span nz-icon nzType="cloud-upload"></span>
-          Seleccionar imagen
-        </button>
-      </nz-upload>
-    </nz-form-control>
-  </nz-form-item>
-  @if (fileError(); as message) {
-    <nz-alert nzType="error" [nzMessage]="message" nzShowIcon data-testid="file-error-message" />
-  }
-
-  <nz-form-item>
-    <nz-form-label nzFor="mural-title" nzRequired>Título</nz-form-label>
-    <nz-form-control>
-      <input
-        nz-input
-        id="mural-title"
-        [value]="title()"
-        (input)="onTitleChange($event)"
-        data-testid="title-input"
-      />
-    </nz-form-control>
-  </nz-form-item>
-
-  @if (manualLocationRequired()) {
-    <nz-form-item>
-      <nz-form-label nzFor="mural-latitude" nzRequired>Latitud</nz-form-label>
-      <nz-form-control>
-        <input
-          nz-input
-          type="number"
-          step="any"
-          id="mural-latitude"
-          [value]="latitude()"
-          (input)="onLatitudeChange($event)"
-          data-testid="latitude-input"
-        />
-      </nz-form-control>
-    </nz-form-item>
-    <nz-form-item>
-      <nz-form-label nzFor="mural-longitude" nzRequired>Longitud</nz-form-label>
-      <nz-form-control>
-        <input
-          nz-input
-          type="number"
-          step="any"
-          id="mural-longitude"
-          [value]="longitude()"
-          (input)="onLongitudeChange($event)"
-          data-testid="longitude-input"
-        />
-      </nz-form-control>
-    </nz-form-item>
-  }
-
-  <button
-    nz-button
-    nzType="primary"
-    type="submit"
-    [disabled]="!canSubmit()"
-    [nzLoading]="submitting()"
-    data-testid="submit-button"
-  >
-    Guardar
-  </button>
-</form>
+  </form>
+</div>

@@ -8,15 +8,18 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzUploadChangeParam, NzUploadFile, NzUploadModule } from 'ng-zorro-antd/upload';
 import { ApiError } from '../../../core/http/api-error';
-import { GeolocationService } from '../../../shared/geolocation.service';
+import { GeolocationCoordinates, GeolocationService } from '../../../shared/geolocation.service';
 import { CreateMuralRequest, MuralService } from '../data/mural.service';
+import { NzNotificationService } from 'ng-zorro-antd/notification';
+import { Router } from '@angular/router';
+import * as L from 'leaflet';
+import { NzAlertModule } from 'ng-zorro-antd/alert';
 
 /** Same allowlist the backend accepts (Block 4) — this check is UX-only feedback, never the
  * authority: `file.type` is client-controlled and trivially spoofable. The real gate is the
@@ -28,6 +31,21 @@ const MIN_LATITUDE = -90;
 const MAX_LATITUDE = 90;
 const MIN_LONGITUDE = -180;
 const MAX_LONGITUDE = 180;
+const TILE_LAYER_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_LAYER_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+// `_getIconUrl` no está en las definiciones de tipos públicas de Leaflet — es el workaround
+// documentado de la propia librería para bundlers ESM (esbuild/Angular 21), que sin esto resuelven
+// mal la URL de los íconos por defecto y dejan los marcadores del mapa invisibles (FIX-002).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'images/leaflet/marker-icon-2x.png',
+  iconUrl: 'images/leaflet/marker-icon.png',
+  shadowUrl: 'images/leaflet/marker-shadow.png',
+});
 
 /**
  * Standalone form to create a mural (photo + location). Consumes `MuralService` only — never the
@@ -39,23 +57,26 @@ const MAX_LONGITUDE = 180;
   standalone: true,
   imports: [
     FormsModule,
-    NzAlertModule,
     NzButtonModule,
     NzFormModule,
     NzIconModule,
     NzInputModule,
     NzUploadModule,
+    NzAlertModule,
   ],
   templateUrl: './create-mural-form.component.html',
+  styleUrls: ['./create-mural-form.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CreateMuralFormComponent implements OnInit, OnDestroy {
   private readonly muralService = inject(MuralService);
   private readonly geolocationService = inject(GeolocationService);
+  private readonly notification = inject(NzNotificationService);
+  private readonly router = inject(Router);
 
   readonly selectedFile = signal<File | null>(null);
   /** UX-only inline feedback for the file selector — see `ALLOWED_PHOTO_TYPES` above. */
-  readonly fileError = signal<string | null>(null);
+  readonly fileError = signal<boolean>(false);
   /** Backs `[nzFileList]` on `<nz-upload>` (spec-FEAT-008 Block 1) — at most 1 entry (`nzMaxCount`).
    * Populated entirely inside `beforeUpload`, never by `nz-upload` itself: returning `false`
    * synchronously from `nzBeforeUpload` stops the upload flow before `onStart`, the only point
@@ -75,6 +96,8 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
    * "Reintentar" can resubmit them without asking again (FR-13/AC-11). */
   readonly errorMessage = signal<string | null>(null);
 
+  private map: L.Map | null = null;
+
   readonly canSubmit = computed(() => {
     const file = this.selectedFile();
     const title = this.title();
@@ -82,7 +105,7 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
     const longitude = this.longitude();
     return (
       file !== null &&
-      this.fileError() === null &&
+      this.fileError() === false &&
       title !== null &&
       title.trim().length > 0 &&
       latitude !== null &&
@@ -111,12 +134,18 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
     const rawFile = ((file as { originFileObj?: File }).originFileObj ?? file) as unknown as File;
 
     if (!ALLOWED_PHOTO_TYPES.includes(rawFile.type)) {
-      this.fileError.set('El archivo debe ser una imagen JPEG, PNG o WebP.');
+      this.fileError.set(true);
+      this.notification.create(
+        'error',
+        'Notificación',
+        'El archivo debe ser una imagen JPEG, PNG o WebP.',
+      );
       return false;
     }
 
     if (rawFile.size > MAX_PHOTO_SIZE_BYTES) {
-      this.fileError.set('El archivo no puede superar los 10 MB.');
+      this.fileError.set(true);
+      this.notification.create('error', 'Notificación', 'El archivo no puede superar los 10 MB.');
       return false;
     }
 
@@ -125,7 +154,7 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
     // lifetime of the page.
     this.revokeCurrentThumbUrl();
 
-    this.fileError.set(null);
+    this.fileError.set(false);
     this.selectedFile.set(rawFile);
     this.fileList.set([
       {
@@ -160,7 +189,7 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
 
     this.fileList.set([]);
     this.selectedFile.set(null);
-    this.fileError.set(null);
+    this.fileError.set(false);
   };
 
   /** Revoca el `thumbUrl` de la entrada actual, si existe, para no dejar un Blob URL vivo cuando
@@ -200,9 +229,16 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
       next: (data) => {
         this.submitting.set(false);
         if (data.status === 'Pending') {
-          this.successMessage.set('Tu mural quedó pendiente de revisión.');
+          this.notification.create(
+            'success',
+            'Notificación',
+            'Tu mural quedó pendiente de revisión.',
+          );
+          this.router.navigate(['/discover']);
         } else {
-          this.errorMessage.set(
+          this.notification.create(
+            'error',
+            'Notificación',
             'Tu mural fue rechazado ya que no cumple con los criterios de moderación.',
           );
         }
@@ -227,11 +263,32 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
       (coordinates) => {
         this.latitude.set(coordinates.latitude);
         this.longitude.set(coordinates.longitude);
+
+        this.setCoordinatesInMap(coordinates);
       },
       () => {
         this.manualLocationRequired.set(true);
       },
     );
+  }
+
+  private setCoordinatesInMap(coordinates: GeolocationCoordinates): void {
+    this.map = L.map('location-preview', {
+      center: [coordinates.latitude, coordinates.longitude],
+      zoom: 16,
+
+      // El usuario no puede interactuar
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      keyboard: false,
+      touchZoom: false,
+      zoomControl: false,
+    });
+
+    L.tileLayer(TILE_LAYER_URL, { attribution: TILE_LAYER_ATTRIBUTION }).addTo(this.map);
+    L.marker([coordinates.latitude, coordinates.longitude]).addTo(this.map);
   }
 
   private parseNumberInput(event: Event): number | null {
