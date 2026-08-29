@@ -86,6 +86,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   sesión actual, y `provideAppInitializer` lo consulta al arrancar la app (solo si hay un token
   guardado) antes de resolver cualquier ruta protegida. Un token inválido/expirado sigue
   redirigiendo a `/login` exactamente como antes, sin duplicar esa lógica.
+- **FEAT-008 — NzFileUpload con preview en creación de mural**: el formulario de creación de mural
+  reemplaza el `<input type="file">` nativo por `nz-upload` de ng-zorro (primer uso de este
+  componente en el proyecto), con preview inmediato en miniatura, reemplazo y eliminación del
+  archivo elegido, y las mismas validaciones de tipo (JPEG/PNG/WebP) y tamaño (≤10MB) de siempre —
+  UX-only, el backend sigue siendo la autoridad real. Como `nzBeforeUpload` devolviendo `false` de
+  forma síncrona impide que `nz-upload` dispare su propio evento de alta, el componente arma y
+  revoca (`URL.revokeObjectURL`) el preview a mano, evitando memory leaks al reemplazar, quitar o
+  destruir el formulario. Corrige además un bug de casing preexistente (`'pending'` vs `'Pending'`)
+  que impedía mostrar el mensaje de confirmación tras un envío exitoso.
 
 ### Fixed
 
