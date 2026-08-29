@@ -1,7 +1,9 @@
 .navbar {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+
   height: 100%;
   padding: 0 1rem;
   box-sizing: border-box;
@@ -13,11 +15,15 @@
 }
 
 .navbar-toggle {
+  position: absolute;
+  left: 1rem;
+
   border: none;
   background: transparent;
   color: inherit;
   cursor: pointer;
   padding: 0.25rem;
+
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -56,6 +56,7 @@
   <app-discovery-map
     [items]="items()"
     [center]="center()"
+    [searchCenter]="lastSearchCenter()"
     (muralSelected)="onMuralSelected()"
     (mapMoved)="onMapMoved($event)"
   />

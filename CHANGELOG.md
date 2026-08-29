@@ -106,6 +106,13 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   (`Latitude => Location.Y`, `Longitude => Location.X`) para que el mapeo siga funcionando sin
   tocarlo. Elimina `GeoDistanceCalculator` (Haversine + bounding box) y el índice B-tree
   `IX_Murals_Status_Latitude_Longitude`, ya reemplazados.
+- **FEAT-010 — Marcador del centro de búsqueda en el mapa de /discover**: al usar "Buscar en esta
+  área" se perdía la referencia visual de qué punto usaban las distancias mostradas en la lista — el
+  marcador de "tu ubicación" (FEAT-005) quedaba fijo en el punto inicial. Ahora ese marcador refleja
+  el centro de la última búsqueda exitosa; si el centro de búsqueda y la ubicación real del
+  visitante están a menos de 50 metros, se muestra un solo marcador (evita duplicados casi
+  superpuestos), y si están más lejos se muestran ambos, distinguibles por forma además de color
+  (pin coral vs. círculo celeste) por accesibilidad. Sin cambios de backend.
 
 ### Fixed
 
