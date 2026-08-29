@@ -20,6 +20,7 @@ import { NzImageModule } from 'ng-zorro-antd/image';
   imports: [NzListModule, NzIconModule, NzImageModule, DatePipe, DecimalPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './discovery-list.component.html',
+  styleUrls: ['./discovery-list.component.css'],
 })
 export class DiscoveryListComponent {
   readonly items = input<NearbyMuralItemResponse[]>([]);

@@ -1,0 +1,9 @@
+@media screen and (max-width: 576px) {
+  .ant-list-vertical .ant-list-item-extra {
+    margin: auto;
+  }
+
+  img {
+    max-width: 110px;
+  }
+}

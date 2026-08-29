@@ -17,6 +17,7 @@ import {
   CloudUploadOutline,
   CompassOutline,
   DeleteOutline,
+  DownloadOutline,
   EnvironmentOutline,
   ExclamationCircleOutline,
   GoogleOutline,
@@ -90,6 +91,7 @@ export const appConfig: ApplicationConfig = {
       // nzListType="picture" renderiza este botón de forma incondicional aunque el click todavía
       // no tenga handler.
       DeleteOutline,
+      DownloadOutline,
     ]),
   ],
 };
