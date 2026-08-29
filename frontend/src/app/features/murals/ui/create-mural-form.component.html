@@ -25,6 +25,7 @@
         [nzBeforeUpload]="beforeUpload"
         [nzFileList]="fileList()"
         [nzMaxCount]="1"
+        (nzChange)="onUploadChange($event)"
         nzAccept="image/jpeg,image/png,image/webp"
         data-testid="photo-upload"
       >

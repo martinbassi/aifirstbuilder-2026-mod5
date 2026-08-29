@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideNzIconsTesting } from 'ng-zorro-antd/icon/testing';
 import { NzUploadFile } from 'ng-zorro-antd/upload';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { CreateMuralResponse } from '../../../core/api-client/api-client.generated';
 import { GeolocationService } from '../../../shared/geolocation.service';
 import { MuralService } from '../data/mural.service';
@@ -96,6 +96,13 @@ describe('CreateMuralFormComponent', () => {
         provideNzIconsTesting(),
       ],
     });
+  });
+
+  // `vi.spyOn(URL, 'revokeObjectURL')` (Block 2 tests) envuelve el método global sin restaurarlo
+  // solo: sin este afterEach, los spies se anidan entre tests y sus contadores de llamadas se
+  // arrastran de un test a otro.
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   // Required test (Block 1, AC-01): archivo válido (JPEG ≤10MB) → preview inmediato.
@@ -305,5 +312,139 @@ describe('CreateMuralFormComponent', () => {
       '[data-testid="success-message"]',
     );
     expect(successEl).toBeTruthy();
+  });
+
+  // Required test (Block 2, AC-02): reemplazar el archivo revoca el thumbUrl anterior antes de
+  // asignar el nuevo.
+  it('revoca el thumbUrl anterior al reemplazar el archivo seleccionado', () => {
+    stubGeolocation(geolocationService, 'success');
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL');
+    const firstFile = new File(['x'], 'wall-1.jpg', { type: 'image/jpeg' });
+    const secondFile = new File(['y'], 'wall-2.jpg', { type: 'image/jpeg' });
+
+    component.beforeUpload(asUploadFile(firstFile));
+    fixture.detectChanges();
+    const firstUrl = component.fileList()[0].thumbUrl;
+
+    component.beforeUpload(asUploadFile(secondFile));
+    fixture.detectChanges();
+
+    expect(component.fileList()).toHaveLength(1);
+    expect(component.fileList()[0].originFileObj).toBe(secondFile);
+    expect(revokeSpy).toHaveBeenCalledWith(firstUrl);
+  });
+
+  // Required test (Block 2, AC-03): click en el ícono de eliminar de nz-upload-list limpia el
+  // estado (fileList, selectedFile, fileError) y deshabilita "Guardar" de nuevo.
+  it('limpia el estado cuando se elimina el archivo desde nz-upload-list', () => {
+    stubGeolocation(geolocationService, 'success');
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    const validFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
+    component.beforeUpload(asUploadFile(validFile));
+    fixture.detectChanges();
+
+    // `.ant-upload-list-item-card-actions-btn` matches BOTH the download and the delete buttons
+    // (nz-upload-list renders both when `nzShowUploadList` is truthy) — narrow down to the one
+    // whose icon is `nz-icon[nzType="delete"]` (rendered as class `anticon-delete`), never the
+    // first match, or this would click "download" instead.
+    const removeButton: HTMLButtonElement | null = fixture.nativeElement.querySelector(
+      '.ant-upload-list-item-card-actions-btn:has(.anticon-delete)',
+    );
+    expect(removeButton).toBeTruthy();
+    removeButton!.click();
+    fixture.detectChanges();
+
+    expect(component.fileList()).toHaveLength(0);
+    expect(component.selectedFile()).toBeNull();
+    expect(component.fileError()).toBeNull();
+    const submitButton: HTMLButtonElement = fixture.nativeElement.querySelector(
+      '[data-testid="submit-button"]',
+    );
+    expect(submitButton.disabled).toBe(true);
+  });
+
+  // Required test (Block 2, AC-06): el botón "Guardar" muestra nzLoading hasta que el submit
+  // resuelve, y ninguna subida real se dispara antes del submit explícito.
+  it('mantiene nzLoading durante el submit sin disparar ninguna subida antes del envío explícito', async () => {
+    stubGeolocation(geolocationService, 'success', { latitude: -34.6, longitude: -58.4 });
+    const createSubject = new Subject<CreateMuralResponse>();
+    muralService.create.mockReturnValue(createSubject.asObservable());
+
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await flushGeolocation(fixture);
+
+    const validFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
+    component.beforeUpload(asUploadFile(validFile));
+    component.onTitleChange(titleInputEvent('Mural de prueba'));
+    fixture.detectChanges();
+
+    expect(muralService.create).not.toHaveBeenCalled();
+
+    const submitButton: HTMLButtonElement = fixture.nativeElement.querySelector(
+      '[data-testid="submit-button"]',
+    );
+    submitButton.click();
+    fixture.detectChanges();
+
+    expect(muralService.create).toHaveBeenCalledTimes(1);
+    expect(component.submitting()).toBe(true);
+    expect(submitButton.classList.contains('ant-btn-loading')).toBe(true);
+
+    createSubject.next(new CreateMuralResponse({ id: 'mural-1', status: 'Pending' }));
+    createSubject.complete();
+    fixture.detectChanges();
+
+    expect(component.submitting()).toBe(false);
+    expect(submitButton.classList.contains('ant-btn-loading')).toBe(false);
+  });
+
+  // Required test (Block 2, AC-07/NFR-01): reemplazar el archivo y destruir el componente revoca
+  // el thumbUrl tanto en el reemplazo como en el destroy.
+  it('revoca el thumbUrl en el reemplazo y en el destroy del componente', () => {
+    stubGeolocation(geolocationService, 'success');
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL');
+    const firstFile = new File(['x'], 'wall-1.jpg', { type: 'image/jpeg' });
+    const secondFile = new File(['y'], 'wall-2.jpg', { type: 'image/jpeg' });
+
+    component.beforeUpload(asUploadFile(firstFile));
+    fixture.detectChanges();
+    const firstUrl = component.fileList()[0].thumbUrl;
+
+    component.beforeUpload(asUploadFile(secondFile));
+    fixture.detectChanges();
+    const secondUrl = component.fileList()[0].thumbUrl;
+
+    expect(revokeSpy).toHaveBeenCalledWith(firstUrl);
+
+    fixture.destroy();
+
+    expect(revokeSpy).toHaveBeenCalledWith(secondUrl);
+    expect(revokeSpy).toHaveBeenCalledTimes(2);
+  });
+
+  // Edge case (no-op seguro): destruir el componente sin haber seleccionado nunca un archivo no
+  // debe lanzar excepción ni invocar URL.revokeObjectURL.
+  it('no lanza excepción ni revoca nada al destruir sin haber seleccionado un archivo', () => {
+    stubGeolocation(geolocationService, 'success');
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    fixture.detectChanges();
+
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL');
+
+    expect(() => fixture.destroy()).not.toThrow();
+    expect(revokeSpy).not.toHaveBeenCalled();
   });
 });

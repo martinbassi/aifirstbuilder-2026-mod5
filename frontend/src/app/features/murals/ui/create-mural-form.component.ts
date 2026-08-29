@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  OnDestroy,
   OnInit,
   computed,
   inject,
@@ -12,7 +13,7 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
-import { NzUploadFile, NzUploadModule } from 'ng-zorro-antd/upload';
+import { NzUploadChangeParam, NzUploadFile, NzUploadModule } from 'ng-zorro-antd/upload';
 import { ApiError } from '../../../core/http/api-error';
 import { GeolocationService } from '../../../shared/geolocation.service';
 import { CreateMuralRequest, MuralService } from '../data/mural.service';
@@ -48,7 +49,7 @@ const MAX_LONGITUDE = 180;
   templateUrl: './create-mural-form.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CreateMuralFormComponent implements OnInit {
+export class CreateMuralFormComponent implements OnInit, OnDestroy {
   private readonly muralService = inject(MuralService);
   private readonly geolocationService = inject(GeolocationService);
 
@@ -119,6 +120,11 @@ export class CreateMuralFormComponent implements OnInit {
       return false;
     }
 
+    // Replacement (spec-FEAT-008 Block 2, AC-02/NFR-01): revoke the previous entry's `thumbUrl`
+    // before overwriting `fileList` with the new one, otherwise the old Blob URL leaks for the
+    // lifetime of the page.
+    this.revokeCurrentThumbUrl();
+
     this.fileError.set(null);
     this.selectedFile.set(rawFile);
     this.fileList.set([
@@ -136,6 +142,32 @@ export class CreateMuralFormComponent implements OnInit {
 
     return false;
   };
+
+  /**
+   * Único punto de baja de archivo (spec-FEAT-008 Block 2, AC-03/NFR-01). A diferencia de
+   * `beforeUpload`, este SÍ llega vía `(nzChange)`: el ícono de eliminar de `nz-upload-list`
+   * dispara el flujo interno de remoción de `nz-upload` independientemente de que
+   * `nzBeforeUpload` haya devuelto `false` en el alta. Class field de flecha por el mismo motivo
+   * que `beforeUpload`: `nz-upload` lo invoca con un `this` distinto al de la instancia del
+   * componente.
+   */
+  readonly onUploadChange = (event: NzUploadChangeParam): void => {
+    if (event.type !== 'removed') {
+      return;
+    }
+
+    this.revokeCurrentThumbUrl();
+
+    this.fileList.set([]);
+    this.selectedFile.set(null);
+    this.fileError.set(null);
+  };
+
+  /** Revoca el `thumbUrl` de la entrada actual, si existe, para no dejar un Blob URL vivo cuando
+   * el usuario navega fuera del formulario con un archivo todavía seleccionado (AC-07/NFR-01). */
+  ngOnDestroy(): void {
+    this.revokeCurrentThumbUrl();
+  }
 
   onTitleChange(event: Event): void {
     this.title.set((event.target as HTMLInputElement).value);
@@ -205,5 +237,14 @@ export class CreateMuralFormComponent implements OnInit {
   private parseNumberInput(event: Event): number | null {
     const value = (event.target as HTMLInputElement).valueAsNumber;
     return Number.isNaN(value) ? null : value;
+  }
+
+  /** Revoca el `thumbUrl` de la entrada actual de `fileList`, si existe. Extraído de
+   * `beforeUpload`, `onUploadChange` y `ngOnDestroy`, que repetían el mismo chequeo antes de
+   * pisar/vaciar la lista o al destruir el componente (AC-02/AC-03/AC-07/NFR-01). */
+  private revokeCurrentThumbUrl(): void {
+    if (this.fileList().length > 0) {
+      URL.revokeObjectURL(this.fileList()[0].thumbUrl as string);
+    }
   }
 }
