@@ -2,8 +2,8 @@ using FluentValidation;
 using MapsterMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Paretto.Domain.Entities;
 using Paretto.Domain.Enums;
-using Paretto.Domain.Services;
 using Paretto.Infrastructure.Data;
 using Paretto.Infrastructure.Storage;
 
@@ -81,25 +81,28 @@ public class GetNearbyMuralsQueryHandler : IRequestHandler<GetNearbyMuralsQuery,
     public async Task<GetNearbyMuralsResponse> Handle(GetNearbyMuralsQuery request, CancellationToken cancellationToken)
     {
         var radiusKm = request.RadiusKm ?? 5.0;
-        var (minLat, maxLat, minLon, maxLon) = GeoDistanceCalculator.BoundingBox(request.Latitude, request.Longitude, radiusKm);
 
-        // `Status == Published` is always the first clause — never omitted, never conditional
-        // (mitigation of threat model R1: a Pending/Rejected mural must never be reachable through
-        // this public, unauthenticated endpoint).
+        // Único punto donde se construye el `Point` de búsqueda — siempre vía el factory de `Mural`
+        // (mitigación de threat model R2, nunca `new Point(...)` a mano).
+        var searchPoint = Mural.CreateLocation(request.Latitude, request.Longitude);
+
+        // `Status == Published` es siempre la primera cláusula — nunca se omite ni es condicional
+        // (mitigación de threat model R1: un mural Pending/Rejected nunca debe ser alcanzable a
+        // través de este endpoint público sin sesión).
+        // La consulta espacial vía LINQ-to-Entities (`Location.Distance(searchPoint)`, traducida a
+        // `STDistance` de SQL Server sobre la columna `geography`) reemplaza el bounding box +
+        // Haversine en memoria: el índice espacial de Block 1 acota el candidate set sin necesidad de
+        // un bounding box manual. Nunca SQL crudo con interpolación de lat/lng/radius — LINQ-to-
+        // Entities parametriza automáticamente (mitigación de threat model R1, no negociable).
         var candidates = await _dbContext.Murals
             .Where(m => m.Status == MuralStatus.Published)
-            .Where(m => m.Latitude >= minLat && m.Latitude <= maxLat)
-            .Where(m => m.Longitude >= minLon && m.Longitude <= maxLon)
+            .Where(m => m.Location.Distance(searchPoint) <= radiusKm * 1000)
+            .OrderBy(m => m.Location.Distance(searchPoint))
+            .Take(MaxResults)
+            .Select(m => new { Mural = m, DistanceKm = m.Location.Distance(searchPoint) / 1000 })
             .ToListAsync(cancellationToken);
 
-        // The bounding box is a rectangle, not a circle — its corners can be inside the box but
-        // beyond the real radius. Haversine over the already-narrowed candidate set discards those
-        // and produces the exact ordering.
         var items = candidates
-            .Select(mural => (Mural: mural, DistanceKm: GeoDistanceCalculator.HaversineKm(request.Latitude, request.Longitude, mural.Latitude, mural.Longitude)))
-            .Where(x => x.DistanceKm <= radiusKm)
-            .OrderBy(x => x.DistanceKm)
-            .Take(MaxResults)
             .Select(x =>
             {
                 var response = _mapper.Map<NearbyMuralItemResponse>(x.Mural);

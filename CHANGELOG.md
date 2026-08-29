@@ -95,6 +95,17 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   revoca (`URL.revokeObjectURL`) el preview a mano, evitando memory leaks al reemplazar, quitar o
   destruir el formulario. Corrige además un bug de casing preexistente (`'pending'` vs `'Pending'`)
   que impedía mostrar el mensaje de confirmación tras un envío exitoso.
+- **FEAT-009 — Migrar búsqueda de murales cercanos a geography + NetTopologySuite**: la ubicación
+  del mural pasa de columnas `Latitude`/`Longitude` sueltas a una columna `geography`
+  (`Point` de NetTopologySuite, SRID 4326), y el cálculo de cercanía pasa de Haversine + bounding
+  box en memoria (ver ADR-005 original) a una consulta espacial nativa de SQL Server acelerada por
+  un índice espacial. ADR-005 actualizado in-place: la migración se adopta ahora como mejora técnica
+  proactiva, no porque se haya medido una degradación real de NFR-01. Contrato público de
+  `GET /api/discovery/nearby-murals` y de creación de mural sin ningún cambio visible (mismos
+  campos, mismos valores, mismo orden) — `Mural` gana propiedades computadas
+  (`Latitude => Location.Y`, `Longitude => Location.X`) para que el mapeo siga funcionando sin
+  tocarlo. Elimina `GeoDistanceCalculator` (Haversine + bounding box) y el índice B-tree
+  `IX_Murals_Status_Latitude_Longitude`, ya reemplazados.
 
 ### Fixed
 

@@ -54,8 +54,12 @@ public class AppDbContext : DbContext
             // Blobs se nombran `{Guid}{extensión}`, muy por debajo del límite.
             entity.Property(m => m.PhotoBlobName).IsRequired().HasMaxLength(300);
             entity.Property(m => m.Title).IsRequired().HasMaxLength(50);
-            entity.Property(m => m.Latitude).IsRequired();
-            entity.Property(m => m.Longitude).IsRequired();
+            // FEAT-009: `Latitude`/`Longitude` pasan a ser propiedades computadas de solo lectura
+            // (`Location.Y`/`Location.X`) — EF Core las ignora, la única columna persistida es
+            // `Location` (`geography`, ver la migración `MuralLocationGeography`).
+            entity.Property(m => m.Location).HasColumnType("geography").IsRequired();
+            entity.Ignore(m => m.Latitude);
+            entity.Ignore(m => m.Longitude);
             entity.Property(m => m.Status).IsRequired().HasDefaultValue(MuralStatus.Pending);
             entity.Property(m => m.CreatedAt).IsRequired();
 
@@ -68,12 +72,11 @@ public class AppDbContext : DbContext
                 .HasForeignKey(m => m.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Índice B-tree compuesto (no espacial: SQL Server no ofrece uno para columnas `float`
-            // sueltas) que permite que el filtro Status == Published junto con el rango de
-            // Latitude/Longitude del bounding box (FEAT-001d, GeoDistanceCalculator.BoundingBox) use
-            // seek en vez de scan completo de la tabla. Ver ADR-005.
-            entity.HasIndex(m => new { m.Status, m.Latitude, m.Longitude })
-                .HasDatabaseName("IX_Murals_Status_Latitude_Longitude");
+            // El índice B-tree compuesto `IX_Murals_Status_Latitude_Longitude` (FEAT-001d) se
+            // eliminó junto con las columnas `Latitude`/`Longitude` — reemplazado por el índice
+            // espacial `SPATIAL_IX_Murals_Location` sobre `Location`, creado con SQL crudo en la
+            // migración `MuralLocationGeography` (el Fluent API de EF Core no tiene soporte nativo
+            // para `CREATE SPATIAL INDEX`). Ver ADR-005 (revisado, FEAT-009).
         });
     }
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)

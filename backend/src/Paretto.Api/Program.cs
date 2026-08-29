@@ -64,8 +64,14 @@ mapsterConfig.Scan(typeof(Program).Assembly);
 builder.Services.AddSingleton(mapsterConfig);
 builder.Services.AddScoped<IMapper, ServiceMapper>();
 
+// FEAT-009: sin esto, el DbContext real de runtime (a diferencia del de diseño en
+// AppDbContextFactory, ya corregido) no puede construir el modelo una vez que `Mural.Location`
+// (`Point` de NetTopologySuite) existe — el proveedor de SqlServer no traduce ese CLR type sin la
+// extensión NetTopologySuite.
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlServerOptions => sqlServerOptions.UseNetTopologySuite()));
 
 // Block 4 created IPasswordHasher/PasswordHasher but did not register them in DI (its own tests
 // instantiate PasswordHasher directly, see PasswordHasherTests.cs) — Block 5 is the first consumer

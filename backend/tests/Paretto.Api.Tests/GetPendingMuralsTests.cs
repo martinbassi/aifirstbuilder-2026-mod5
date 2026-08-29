@@ -100,8 +100,7 @@ public class GetPendingMuralsTests : IClassFixture<WebApplicationFactory<Program
         {
             UserId = ownerId,
             PhotoBlobName = $"{Guid.NewGuid()}.jpg",
-            Latitude = -34.6037,
-            Longitude = -58.3816,
+            Location = Mural.CreateLocation(-34.6037, -58.3816),
             Status = status,
             CreatedAt = createdAt,
         };

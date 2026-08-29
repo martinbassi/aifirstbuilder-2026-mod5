@@ -25,7 +25,12 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
             ?? "Server=localhost;Database=Paretto;TrustServerCertificate=True;";
 
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-        optionsBuilder.UseSqlServer(connectionString);
+        // FEAT-009: sin esto, `dotnet ef migrations add`/`database update` no puede construir el
+        // modelo de diseño una vez que `Mural.Location` (`Point` de NetTopologySuite) existe — el
+        // proveedor de SqlServer no traduce ese CLR type sin la extensión NetTopologySuite (gap del
+        // Impact Scan, ver AppDbContextFactory_builds_a_model_that_supports_the_Point_column_used_by_the_migration
+        // en MuralPersistenceTests.cs).
+        optionsBuilder.UseSqlServer(connectionString, sqlServerOptions => sqlServerOptions.UseNetTopologySuite());
 
         return new AppDbContext(optionsBuilder.Options);
     }
