@@ -5,7 +5,7 @@
 | Ticket | FEAT-005 |
 | Tracker | none |
 | Date | 2026-08-25 |
-| PRD loops | 0 |
+| PRD loops | 1 |
 
 ## Context and Problem
 
@@ -27,6 +27,12 @@ vuelve a reaccionar después:
 
 Este ticket corrige ambos comportamientos y agrega la interacción explícita que permite re-consultar
 murales según el área que el usuario decide explorar.
+
+**(PRD loop 1, FEAT-010):** una vez en uso, apareció un tercer problema relacionado: el marcador de
+"tu ubicación" (FR-02) queda fijo en la ubicación inicial del visitante y nunca refleja el nuevo
+centro de búsqueda después de "buscar en esta área" — la lista sigue mostrando distancias ("2km")
+pero el mapa ya no tiene ningún punto visible del que esas distancias se calculen. FR-07 a FR-09 y
+AC-09 a AC-12 cierran ese gap.
 
 ## Goals
 
@@ -57,6 +63,18 @@ murales según el área que el usuario decide explorar.
 - FR-06: El sistema debe informar al usuario cuando la nueva consulta no encuentre murales
   publicados en el área buscada, con el mismo criterio sin ampliación automática de radio que FR-06
   de FEAT-001d.
+- FR-07: El sistema debe mostrar un marcador que indique el punto exacto usado como centro de la
+  última consulta de murales cercanos ejecutada (ya sea la carga inicial con la ubicación resuelta,
+  o el resultado de "buscar en esta área"), distinguible de los marcadores de murales. *(Agregado en
+  PRD loop 1, a raíz de FEAT-010: las distancias mostradas en la lista pierden su punto de
+  referencia visual después de "buscar en esta área", porque el marcador de FR-02 queda fijo en la
+  ubicación inicial del visitante y no refleja el nuevo centro de búsqueda.)*
+- FR-08: SI el marcador de ubicación del visitante (FR-02) y el marcador de centro de búsqueda
+  (FR-07) están a menos de 50 metros de distancia en línea recta entre sí, el sistema debe mostrar
+  un único marcador en vez de ambos superpuestos. *(PRD loop 1, FEAT-010.)*
+- FR-09: SI esos dos marcadores están a 50 metros o más de distancia en línea recta entre sí, el
+  sistema debe mostrar ambos, visualmente distinguibles entre sí y de los marcadores de murales.
+  *(PRD loop 1, FEAT-010.)*
 
 ## Non-Functional Requirements
 
@@ -87,6 +105,18 @@ murales según el área que el usuario decide explorar.
 - AC-08: IF la consulta de "buscar en esta área" falla por un error del backend, THEN THE sistema
   SHALL mostrar un mensaje de error genérico sin perder los marcadores y la lista previos. (FR-05,
   AGENTS.md → Frontend → Error handling)
+- AC-09: WHEN una consulta de murales cercanos se completa exitosamente (carga inicial o "buscar en
+  esta área"), THE sistema SHALL mostrar o actualizar un marcador en el punto usado como centro de
+  esa consulta. (FR-07)
+- AC-10: WHEN el marcador de ubicación del visitante y el marcador de centro de búsqueda están a
+  menos de 50 metros de distancia en línea recta entre sí, THE sistema SHALL mostrar un único
+  marcador. (FR-08)
+- AC-11: WHEN esos dos marcadores están a 50 metros o más de distancia en línea recta entre sí, THE
+  sistema SHALL mostrar ambos, visualmente distinguibles entre sí y de los marcadores de murales.
+  (FR-09)
+- AC-12: IF la consulta de "buscar en esta área" falla, THEN THE sistema SHALL mantener el marcador
+  de centro de búsqueda en su última posición válida, sin moverlo a una ubicación no confirmada.
+  (FR-07, FR-05)
 
 ## Out of Scope
 
@@ -100,26 +130,28 @@ murales según el área que el usuario decide explorar.
   resultados — ya excluido en FEAT-001d, sigue excluido acá.
 - **Persistir o recordar la última área buscada** entre sesiones o al recargar la página.
 - **Mostrar la precisión/exactitud de la geolocalización** (radio de error del GPS) sobre el mapa.
+- **Umbral de cercanía basado en píxeles de pantalla.** El umbral de 50 metros (FR-08/FR-09) se
+  calcula como distancia real en línea recta (ej. Haversine), no como distancia en píxeles del mapa
+  — evita que el mismo umbral se comporte distinto según el nivel de zoom. *(PRD loop 1, FEAT-010.)*
 
 ## Risks and Mitigations
 
-### El fix de re-centrado puede generar un loop de renders si no se acota bien
-
-**Riesgo:** si el mapa reacciona a *cualquier* cambio de `center` sin condición, y algo más adelante
-llegara a mutar `center` en cada detección de cambios, se podría generar un `setView` repetido
-innecesario (no un bug funcional, pero sí trabajo de más en cada ciclo).
-
-**Mitigación:** a definir en PLAN — la reacción a `center` debe compararse contra el centro ya
-aplicado antes de llamar `setView`, o limitarse a los casos en que `center` pasa de `null`/distinto
-valor a uno nuevo.
-
-### El botón "buscar en esta área" no debe confundirse con una recarga total de la página
-
-**Riesgo:** un usuario que ya scrolleó la lista de resultados podría perder ese contexto si el botón
-se comporta como un refresh completo.
-
-**Mitigación:** FR-05/AC-06 ya fijan que los resultados previos se mantienen visibles hasta que
-llega la respuesta nueva — no hay pantalla en blanco ni salto de scroll forzado.
+- **El fix de re-centrado puede generar un loop de renders si no se acota bien.** Riesgo: si el mapa
+  reacciona a *cualquier* cambio de `center` sin condición, y algo más adelante llegara a mutar
+  `center` en cada detección de cambios, se podría generar un `setView` repetido innecesario (no un
+  bug funcional, pero sí trabajo de más en cada ciclo). Mitigación: a definir en PLAN — la reacción
+  a `center` debe compararse contra el centro ya aplicado antes de llamar `setView`, o limitarse a
+  los casos en que `center` pasa de `null`/distinto valor a uno nuevo.
+- **El botón "buscar en esta área" no debe confundirse con una recarga total de la página.** Riesgo:
+  un usuario que ya scrolleó la lista de resultados podría perder ese contexto si el botón se
+  comporta como un refresh completo. Mitigación: FR-05/AC-06 ya fijan que los resultados previos se
+  mantienen visibles hasta que llega la respuesta nueva — no hay pantalla en blanco ni salto de
+  scroll forzado.
+- **(PRD loop 1, FEAT-010) El marcador de centro de búsqueda puede confundirse con el de "tu
+  ubicación" si quedan visualmente muy parecidos.** Riesgo: si ambos marcadores usan colores/íconos
+  demasiado similares, el usuario no distingue cuál es cuál incluso cuando FR-08/FR-09 ya deciden
+  correctamente mostrar uno o dos. Mitigación: a definir en PLAN — íconos/colores explícitamente
+  distintos para cada marcador, no solo distintos de los marcadores de murales.
 
 ## Dependencies
 
