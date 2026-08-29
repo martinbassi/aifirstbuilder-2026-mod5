@@ -5,7 +5,7 @@
 | Ticket | FEAT-001b |
 | Tracker | none |
 | Date | 2026-08-15 |
-| PRD loops | 1 |
+| PRD loops | 2 |
 
 ## Context and Problem
 
@@ -15,6 +15,12 @@ ningún mural en el sistema: la moderación (FEAT-001c) no tiene nada que revisa
 (FEAT-001d) no tiene nada que mostrar. Es también donde se resuelve, por primera vez, cómo se
 almacena y se sirve una fotografía — una decisión que FEAT-001c y FEAT-001d van a reutilizar sin
 volver a definirla.
+
+*(Actualizado en PRD loop 2, a raíz de FEAT-011: el ingreso manual de coordenadas de latitud/longitud
+(FR-05 original) resultaba poco natural para el usuario. Se reemplaza por un campo de dirección
+(calle y número) con autocompletado, resuelto por el backend contra un proveedor externo de
+geocodificación de Uruguay — el frontend nunca lo consulta directamente. Las coordenadas de
+latitud/longitud manuales se conservan como alternativa cuando ese proveedor no está disponible.)*
 
 ## Goals
 
@@ -26,6 +32,8 @@ volver a definirla.
   moderación humana.
 - Que los casos límite del flujo (permisos denegados, imagen inválida, fallo de guardado) tengan un
   comportamiento explícito y probado.
+- Que ingresar la ubicación del mural sea tan natural como escribir una dirección, en vez de conocer
+  sus coordenadas de latitud/longitud. *(Agregado en PRD loop 2 — FEAT-011)*
 
 ## Functional Requirements
 
@@ -35,11 +43,19 @@ volver a definirla.
   JPEG/PNG/WebP, indicando el motivo del rechazo. (RF-010, RF-017)
 - FR-03: El sistema debe impedir que el usuario continúe el registro del mural mientras la imagen
   adjunta no sea válida. (RF-018)
-- FR-04: El sistema debe permitir asociar la ubicación GPS actual al mural. (RF-002)
-- FR-05: El sistema debe permitir ingresar manualmente las coordenadas de latitud/longitud del
-  mural. (RF-003)
+- FR-04: El sistema debe permitir asociar la ubicación GPS actual al mural, resolviendo esas
+  coordenadas a una dirección legible (calle y número) mediante geocodificación inversa para que el
+  usuario la confirme. (RF-002) *(Modificado en PRD loop 2 — FEAT-011: agrega la resolución a
+  dirección legible.)*
+- FR-05: El sistema debe permitir ingresar la ubicación del mural escribiendo una dirección (calle y
+  número), mostrando sugerencias de direcciones coincidentes a medida que el usuario escribe, y
+  asociando al mural las coordenadas de latitud/longitud correspondientes a la sugerencia
+  seleccionada. (RF-003) *(Modificado en PRD loop 2 — FEAT-011: reemplaza el ingreso manual de
+  coordenadas crudas por un campo de dirección con autocompletado; ver FR-18 para el fallback.)*
 - FR-06: El sistema debe detectar cuándo el usuario deniega los permisos de geolocalización y
-  ofrecer el ingreso manual de ubicación sin interrumpir el flujo de registro. (RF-009, RF-016)
+  ofrecer el ingreso de dirección por autocompletado (FR-05) sin interrumpir el flujo de registro.
+  (RF-009, RF-016) *(Modificado en PRD loop 2 — FEAT-011: la alternativa a GPS pasa a ser el campo
+  de dirección, no coordenadas crudas.)*
 - FR-07: El sistema debe requerir que el usuario esté autenticado para acceder a la creación de
   murales, redirigiéndolo al flujo de autenticación si no lo está. (RF-026)
 - FR-08: El sistema debe ejecutar una validación automática de contenido NSFW sobre cada imagen
@@ -65,6 +81,15 @@ volver a definirla.
   caracteres, rechazando la creación si se omite o si lo excede. *(Agregado en PRD loop 1, a raíz de
   FIX-003: el commit 9cecf21 introdujo este campo como obligatorio sin que el PRD original lo
   documentara.)*
+- FR-18: El sistema debe ofrecer el ingreso manual de coordenadas de latitud/longitud como
+  alternativa cuando el proveedor externo de direcciones no responde, falla, o no devuelve
+  resultados, sin bloquear el registro del mural. (RF-003) *(Agregado en PRD loop 2 — FEAT-011.)*
+- FR-19: El sistema debe resolver toda búsqueda y geocodificación de direcciones a través del
+  backend de la aplicación; el frontend no debe comunicarse directamente con el proveedor externo de
+  direcciones. (RF-003) *(Agregado en PRD loop 2 — FEAT-011.)*
+- FR-20: El sistema debe mostrar un mapa con un marcador en la ubicación resuelta —ya sea por GPS o
+  por selección de una dirección sugerida— para que el usuario la confirme visualmente antes de
+  guardar el mural. (RF-002, RF-003) *(Agregado en PRD loop 2 — FEAT-011.)*
 
 ## Non-Functional Requirements
 
@@ -74,6 +99,9 @@ volver a definirla.
 - NFR-03: El contenedor de almacenamiento de imágenes (Azure Storage) debe configurarse como
   privado, sin acceso público anónimo por URL directa, independientemente del estado del mural.
   (RNF-009)
+- NFR-04: El sistema debe esperar al menos 300 ms sin que el usuario escriba en el campo de
+  dirección antes de consultar al proveedor externo de direcciones (debounce), para no saturarlo con
+  una solicitud por tecla. *(Agregado en PRD loop 2 — FEAT-011.)*
 
 ## Acceptance Criteria
 
@@ -83,12 +111,14 @@ volver a definirla.
   rechazarla, mostrar un mensaje con el motivo del rechazo, e impedir continuar el registro hasta
   que se cargue una imagen válida. (FR-02, FR-03)
 - AC-03: WHEN el usuario otorgó permisos de ubicación y crea un mural, THE sistema SHALL asociar la
-  ubicación GPS actual al registro. (FR-04)
+  ubicación GPS actual al registro y resolverla a una dirección legible mediante geocodificación
+  inversa. (FR-04) *(Modificado en PRD loop 2 — FEAT-011.)*
 - AC-04: IF el usuario deniega el permiso de geolocalización, THEN THE sistema SHALL detectar la
-  denegación, no interrumpir el flujo de registro, y presentar el ingreso manual de coordenadas como
-  alternativa. (FR-06)
-- AC-05: WHEN el usuario ingresa manualmente coordenadas de latitud y longitud válidas, THE sistema
-  SHALL asociar esa ubicación al mural. (FR-05)
+  denegación, no interrumpir el flujo de registro, y presentar el ingreso de dirección por
+  autocompletado como alternativa. (FR-06) *(Modificado en PRD loop 2 — FEAT-011.)*
+- AC-05: WHEN el usuario selecciona una sugerencia de dirección del autocompletado, THE sistema
+  SHALL resolverla a coordenadas de latitud/longitud y asociarlas al mural. (FR-05) *(Modificado en
+  PRD loop 2 — FEAT-011.)*
 - AC-06: IF el usuario no tiene sesión activa, THEN THE sistema SHALL impedir el acceso a la
   creación de murales y redirigirlo al flujo de autenticación. (FR-07)
 - AC-07: WHEN la validación automática detecta contenido NSFW en la imagen subida, THE sistema SHALL
@@ -116,6 +146,21 @@ volver a definirla.
   (FR-17)
 - AC-16: WHEN el usuario ingresa un título de hasta 50 caracteres junto con una fotografía y
   ubicación válidas, THE sistema SHALL aceptar y persistir el mural con ese título. (FR-17)
+- AC-17: WHEN el usuario escribe en el campo de dirección, THE sistema SHALL esperar el debounce de
+  NFR-04, consultar al backend, y mostrar las sugerencias de direcciones coincidentes devueltas.
+  (FR-05, NFR-04) *(Agregado en PRD loop 2 — FEAT-011.)*
+- AC-18: IF la búsqueda de direcciones no devuelve coincidencias, THEN THE sistema SHALL indicarlo al
+  usuario y permitir que continúe escribiendo o corrija el texto. (FR-05) *(Agregado en PRD loop 2 —
+  FEAT-011.)*
+- AC-19: IF el proveedor externo de direcciones falla, no responde, o excede el tiempo de espera,
+  THEN THE sistema SHALL ofrecer el ingreso manual de coordenadas de latitud/longitud como
+  alternativa, sin bloquear el registro del mural. (FR-18) *(Agregado en PRD loop 2 — FEAT-011.)*
+- AC-20: WHEN el frontend necesita buscar o resolver una dirección, THE sistema SHALL enviar esa
+  solicitud al backend de la aplicación, sin conectarse directamente al proveedor externo de
+  direcciones. (FR-19) *(Agregado en PRD loop 2 — FEAT-011.)*
+- AC-21: WHEN se resuelve una ubicación por GPS o por selección de una sugerencia de dirección, THE
+  sistema SHALL mostrar un mapa con un marcador en esa ubicación para que el usuario la confirme
+  antes de guardar. (FR-20) *(Agregado en PRD loop 2 — FEAT-011.)*
 
 ## Out of Scope
 
@@ -131,6 +176,16 @@ volver a definirla.
   mapa públicos se implementa en FEAT-001d, que es donde vive esa consulta. Este sub-ticket
   garantiza el estado inicial correcto (FR-11) y el control de acceso a la foto (FR-16); no
   implementa el endpoint de búsqueda.
+- **Arrastrar el marcador en el mapa de confirmación** para ajustar manualmente la ubicación
+  resuelta. El mapa de FR-20 es de solo confirmación visual; corregir la ubicación implica volver a
+  escribir la dirección o usar las coordenadas manuales de FR-18. *(Agregado en PRD loop 2 —
+  FEAT-011.)*
+- **Validación de que la dirección pertenezca a Uruguay.** No se agrega una validación explícita de
+  país: el proveedor externo (direcciones.ide.uy) ya está limitado a Uruguay de hecho. *(Agregado en
+  PRD loop 2 — FEAT-011.)*
+- **Edición de la ubicación de un mural ya creado.** Este sub-ticket cubre únicamente el flujo de
+  creación; no hay pantalla para corregir la dirección de un mural existente. *(Agregado en PRD loop
+  2 — FEAT-011.)*
 
 ## Risks and Mitigations
 
@@ -161,6 +216,16 @@ visibilidad del mural y el rol de quien consulta (FR-15, FR-16, AC-13, AC-14).
 coordenadas como alternativa (FR-04, FR-05, FR-06). El reporte de ubicación incorrecta (RF-014)
 queda fuera de este sub-ticket.
 
+### Dependencia de un proveedor externo de direcciones
+
+**Riesgo:** el geocoding por dirección (FR-05, FR-06) depende de un servicio externo
+(direcciones.ide.uy) fuera del control del proyecto, que puede fallar, degradarse o cambiar su
+contrato. *(Agregado en PRD loop 2 — FEAT-011.)*
+
+**Mitigación:** el backend enmascara el proveedor (FR-19), evitando que un cambio de proveedor o de
+contrato impacte al frontend; el ingreso manual de coordenadas (FR-18) sigue disponible como
+alternativa cuando el proveedor no responde, sin bloquear el registro del mural.
+
 ## Dependencies
 
 - **FEAT-001a**: sesión autenticada (FR-07) y modelo de usuario con rol (FR-16 depende de que el rol
@@ -169,3 +234,7 @@ queda fuera de este sub-ticket.
 - Un servicio de validación NSFW (NsfwSpy o Azure AI Foundry, según defina PLAN) para FR-08/FR-09/FR-10.
 - SQL Server 2025 + EF Core para la persistencia de murales.
 - Geolocalización del navegador (API estándar) para FR-04/FR-06.
+- **direcciones.ide.uy** (API pública de geocodificación de Uruguay, sin API key) para FR-04
+  (reversa), FR-05 (directa/autocompletado) y FR-18/FR-19. *(Agregado en PRD loop 2 — FEAT-011.)*
+- Leaflet (ya usado en `/discover` desde FEAT-001d/FEAT-010) para el mapa de confirmación de FR-20.
+  *(Agregado en PRD loop 2 — FEAT-011.)*
