@@ -227,7 +227,14 @@ if (app.Environment.IsDevelopment())
     app.Lifetime.ApplicationStarted.Register(() => Process.Start("nswag", "run nswag.json"));
 }
 
-app.UseHttpsRedirection();
+// FEAT-012: en modo LAN (variable de entorno LanMode, seteada por scripts/dev-lan.sh) el
+// dispositivo llega por HTTP a la IP de LAN — redirigirlo a HTTPS lo mandaría a un puerto que
+// Kestrel solo expone en localhost (ver docs/daw/security/threat-FEAT-012.md, R1: riesgo HTTP
+// plano dentro de la LAN, aceptado explícitamente para este modo opt-in).
+if (!app.Configuration.GetValue<bool>("LanMode"))
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseRateLimiter();
 

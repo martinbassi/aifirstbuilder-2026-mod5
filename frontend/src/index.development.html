@@ -15,14 +15,19 @@
     Dev-only variant (mitigation R1, docs/daw/security/threat-FIX-002.md): `img-src` additionally
     allows `http://127.0.0.1:10000`, the local Azure Storage emulator (Azurite), so mural photos
     uploaded against a local backend actually render. Wired in via `angular.json` ->
-    `architect.build.configurations.development.fileReplacements`, so this file only ships when
+    `architect.build.configurations.development.index`, so this file only ships when
     building/serving with the `development` configuration — never in `production`. Add
-    `index.{env}.html` + its own `fileReplacements` entry for any future environment (staging,
-    etc.) that needs a different CSP than production's.
+    `index.{env}.html` + its own `index` entry for any future environment (staging, etc.) that
+    needs a different CSP than production's.
+
+    Dev-only LAN variant (mitigation R2, docs/daw/security/threat-FEAT-012.md): `connect-src`
+    additionally allows `http://*:5267` so a frontend served via scripts/dev-lan.sh from a LAN IP
+    can reach the backend's HTTP port on that same IP — the wildcard host is scoped to this file
+    only (never `index.html`, same pattern as the Azurite entry above) and to a single port.
   -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.tile.openstreetmap.org http://127.0.0.1:10000 http://localhost:4200; connect-src 'self' https://localhost:7126; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.tile.openstreetmap.org http://127.0.0.1:10000 http://localhost:4200; connect-src 'self' https://localhost:7126 http://*:5267; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     />
   </head>
   <body>
