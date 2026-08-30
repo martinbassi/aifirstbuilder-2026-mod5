@@ -47,3 +47,10 @@
   border-radius: 8px;
   overflow: hidden;
 }
+
+/* spec-FEAT-011 Block 3: oculta (sin desmontar) la confirmación de ubicación cuando el fallback
+   manual está activo — ver comentario en el HTML sobre por qué `#location-preview` no puede ir
+   detrás de un `@if` estructural. */
+.location-preview-hidden {
+  display: none;
+}
