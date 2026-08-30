@@ -204,26 +204,44 @@ feature es siempre acceder por IP de LAN, nunca por hostname. Documentado acá p
   sigue limpiando lo que sí llegó a arrancar.
 
 **Required tests**
-- [ ] Manual: correr `./scripts/dev-lan.sh`, confirmar que backend y frontend arrancan y que la
-  URL impresa es correcta; abrir esa URL desde otro dispositivo de la misma LAN y confirmar que
-  `/login` y `/discover` funcionan de punta a punta (valida AC-01/AC-02).
-- [ ] Manual: con el script corriendo, abrir `http://localhost:4200` en la misma máquina y
-  confirmar que sigue funcionando contra `https://localhost:7126` (valida AC-09).
-- [ ] Manual: sin el script (comandos `dotnet run`/`ng serve` normales), confirmar que ambos
+- [ ] Manual (pendiente, requiere dispositivo físico): correr `./scripts/dev-lan.sh`, confirmar
+  que backend y frontend arrancan y que la URL impresa es correcta; abrir esa URL desde otro
+  dispositivo de la misma LAN y confirmar que `/login` y `/discover` funcionan de punta a punta
+  (valida AC-01/AC-02 — parte E2E). La parte backend de AC-02 (FR-06, CORS dinámico) está
+  verificada más abajo con evidencia real de `curl`.
+- [x] Manual: con el script corriendo, abrir `http://localhost:4200` en la misma máquina y
+  confirmar que sigue funcionando contra `https://localhost:7126` (valida AC-09). Confirmado en
+  el commit original de Block 3.
+- [x] Manual: sin el script (comandos `dotnet run`/`ng serve` normales), confirmar que ambos
   siguen exactamente igual que antes de este ticket — HTTPS en `localhost:7126`, `ng serve` solo
-  en `localhost:4200` (valida AC-03/AC-04).
-- [ ] Manual: presionar Ctrl+C y confirmar (`ps`/`jobs`) que ningún proceso de `dotnet`/`node`
-  queda huérfano (valida AC-06).
-- [ ] Manual: cambiar la IP de LAN de la máquina (reconectar a otra red, o forzar otra IP) y
+  en `localhost:4200` (valida AC-03/AC-04). Cubierto además por
+  `LanModeTests.Without_LanMode_the_default_behavior_still_redirects_to_HTTPS` (automatizado).
+- [x] Manual: presionar Ctrl+C y confirmar (`ps`/`jobs`) que ningún proceso de `dotnet`/`node`
+  queda huérfano (valida AC-06). Re-confirmado el 2026-08-30 (ronda 2 de VERIFY, ver evidencia en
+  `docs/daw/reports/verify-FEAT-012.md`): `kill -INT` sobre el proceso del script imprime
+  "Deteniendo procesos..." una sola vez y `pgrep -af "dev-lan.sh|dotnet run|ng serve"` no devuelve
+  nada tras la limpieza.
+- [x] Manual: cambiar la IP de LAN de la máquina (reconectar a otra red, o forzar otra IP) y
   volver a correr el script sin editar ningún archivo — confirmar que detecta la IP nueva
-  automáticamente y todo sigue funcionando (valida AC-05/NFR-02).
-- [ ] Manual: desde un dispositivo fuera de la LAN (ej. datos móviles del celular, no WiFi),
-  confirmar que la URL de LAN impresa por el script NO es alcanzable (valida AC-07/NFR-01).
-- [ ] Manual: simular ausencia de interfaz LAN (ej. desconectar la red) y confirmar el mensaje de
-  error claro, sin que el script quede colgado (valida AC-08).
-- [ ] Manual: forzar que uno de los dos procesos falle al arrancar (ej. ocupar el puerto 5267 con
+  automáticamente y todo sigue funcionando (valida AC-05/NFR-02). Verificado el 2026-08-30
+  interceptando `hostname -I` (stub en PATH que devuelve `10.20.30.40`, sin tocar ningún archivo
+  del repo): el script imprimió `http://10.20.30.40:4200` sin intervención manual. Evidencia
+  completa en `docs/daw/reports/verify-FEAT-012.md`.
+- [ ] Manual (pendiente, requiere dispositivo físico fuera de la LAN): desde un dispositivo fuera
+  de la LAN (ej. datos móviles del celular, no WiFi), confirmar que la URL de LAN impresa por el
+  script NO es alcanzable (valida AC-07/NFR-01).
+- [x] Manual: simular ausencia de interfaz LAN (ej. desconectar la red) y confirmar el mensaje de
+  error claro, sin que el script quede colgado (valida AC-08). Verificado el 2026-08-30
+  interceptando `hostname -I` (stub en PATH que devuelve vacío): el script terminó con exit code 1
+  y el mensaje de error esperado, sin arrancar `dotnet`/`ng`. Evidencia completa en
+  `docs/daw/reports/verify-FEAT-012.md`.
+- [x] Manual: forzar que uno de los dos procesos falle al arrancar (ej. ocupar el puerto 5267 con
   otro proceso antes de correr el script) y confirmar que el mensaje de error de ese proceso llega
-  a la terminal, sin que el script quede colgado esperando indefinidamente.
+  a la terminal, sin que el script quede colgado esperando indefinidamente. Verificado el
+  2026-08-30 ocupando el puerto 5267 con `nc -l` antes de correr el script: la excepción real de
+  Kestrel (`AddressInUseException`) llega íntegra a la terminal de inmediato; el frontend sigue
+  corriendo normalmente y el `trap` limpia todo sin procesos huérfanos al cortar. Evidencia
+  completa en `docs/daw/reports/verify-FEAT-012.md`.
 
 **Completion criterion**
 Las 8 verificaciones manuales pasan.
