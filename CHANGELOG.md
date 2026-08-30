@@ -128,6 +128,16 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   en Development ahora regenera automáticamente `api-client.generated.ts` (fire-and-forget, apenas
   Kestrel empieza a escuchar) — ya no hace falta correr `nswag run nswag.json` a mano después de
   tocar un DTO o un endpoint. Sin efecto en producción.
+- **FEAT-012 — Comando único para levantar frontend+backend visibles en la LAN**: nuevo script
+  `scripts/dev-lan.sh` que detecta la IP de LAN de la máquina (`hostname -I`) y arranca backend
+  (`dotnet run`) y frontend (`ng serve --host 0.0.0.0`) escuchando en todas las interfaces, con
+  limpieza (`trap`) de ambos procesos al cortar. El backend agrega binding HTTP dinámico
+  (`Cors:AllowedOrigins`) manteniendo el binding HTTPS de `localhost` intacto — otro dispositivo en
+  la misma red puede abrir la app sin certificado ni configuración manual. El frontend resuelve
+  `API_BASE_URL` en runtime según el host desde el que se sirve, en vez de un valor fijo de
+  `environment.ts`. Sin efecto en producción (solo activo con el script; `ng serve`/`dotnet run`
+  directos se comportan igual que antes). Riesgo aceptado documentado en el threat model: la LAN
+  expone HTTP sin cifrar (R1), aceptable para desarrollo local.
 
 ### Fixed
 
