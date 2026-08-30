@@ -5,6 +5,7 @@ import {
   AddressesClient,
   AddressSuggestionDto,
   ApiException,
+  ResolveAddressResponse,
   ReverseGeocodeResponse,
   SearchAddressesResponse,
 } from '../../../core/api-client/api-client.generated';
@@ -14,6 +15,7 @@ describe('AddressService', () => {
   let addressesClient: {
     searchAddresses: ReturnType<typeof vi.fn>;
     reverseGeocodeAddress: ReturnType<typeof vi.fn>;
+    resolveAddress: ReturnType<typeof vi.fn>;
   };
   let httpClient: { request: ReturnType<typeof vi.fn>; get: ReturnType<typeof vi.fn> };
   let service: AddressService;
@@ -22,6 +24,7 @@ describe('AddressService', () => {
     addressesClient = {
       searchAddresses: vi.fn(),
       reverseGeocodeAddress: vi.fn(),
+      resolveAddress: vi.fn(),
     };
     // Never expected to be called by AddressService — the service must go exclusively through
     // AddressesClient (AC-20). Throwing here turns any accidental direct use into a failing test.
@@ -193,5 +196,105 @@ describe('AddressService', () => {
     expect(addressesClient.reverseGeocodeAddress).toHaveBeenCalledTimes(1);
     expect(httpClient.request).not.toHaveBeenCalled();
     expect(httpClient.get).not.toHaveBeenCalled();
+  });
+
+  // FIX-005 — Required test 8: resolveIfNeeded() con coordenadas ya reales no llama a la red.
+  it('resolveIfNeeded() con coordenadas ya reales no llama a la red', () => {
+    const suggestion = new AddressSuggestionDto({
+      address: 'Plaza Independencia',
+      latitude: -34.906,
+      longitude: -56.199,
+    });
+
+    let received: unknown;
+
+    service.resolveIfNeeded(suggestion).subscribe((result) => {
+      received = result;
+    });
+
+    expect(received).toEqual(suggestion);
+    expect(addressesClient.resolveAddress).not.toHaveBeenCalled();
+  });
+
+  // FIX-005 — Required test 9: resolveIfNeeded() con 0,0 llama a resolveAddress() con los 4 campos
+  // de la sugerencia y devuelve el resultado resuelto.
+  it('resolveIfNeeded() con 0,0 llama a resolveAddress() y devuelve las coordenadas resueltas', () => {
+    const suggestion = new AddressSuggestionDto({
+      address: 'Bulevar General Artigas 1234, Montevideo',
+      latitude: 0,
+      longitude: 0,
+      streetId: 8143,
+      portalNumber: 1234,
+      locality: 'MONTEVIDEO',
+      type: 'CALLEyPORTAL',
+    });
+    const resolved = new AddressSuggestionDto({
+      address: 'Bulevar General Artigas 1234, Montevideo',
+      latitude: -34.9059,
+      longitude: -56.1639,
+    });
+    addressesClient.resolveAddress.mockReturnValue(of(new ResolveAddressResponse({ suggestion: resolved })));
+
+    let received: unknown;
+
+    service.resolveIfNeeded(suggestion).subscribe((result) => {
+      received = result;
+    });
+
+    expect(addressesClient.resolveAddress).toHaveBeenCalledWith(8143, 1234, 'MONTEVIDEO', 'CALLEyPORTAL');
+    expect(received).toEqual(resolved);
+  });
+
+  // FIX-005 — Required test 10: resolveIfNeeded() sin resultado del proveedor devuelve null.
+  it('resolveIfNeeded() sin resultado del proveedor devuelve null', () => {
+    const suggestion = new AddressSuggestionDto({
+      address: 'Dirección inexistente 1234',
+      latitude: 0,
+      longitude: 0,
+      streetId: 99999,
+      portalNumber: 1234,
+      locality: 'MONTEVIDEO',
+      type: 'CALLEyPORTAL',
+    });
+    addressesClient.resolveAddress.mockReturnValue(of(new ResolveAddressResponse({ suggestion: undefined })));
+
+    let received: unknown;
+
+    service.resolveIfNeeded(suggestion).subscribe((result) => {
+      received = result;
+    });
+
+    expect(received).toBeNull();
+  });
+
+  // FIX-005 — Required test 11: resolveIfNeeded() con el proveedor caído (503) devuelve null, sin
+  // propagar el error (el componente no necesita distinguir "sin resultado" de "proveedor caído").
+  it('resolveIfNeeded() con el proveedor caído (503) devuelve null sin propagar el error', () => {
+    const suggestion = new AddressSuggestionDto({
+      address: 'Bulevar General Artigas 1234, Montevideo',
+      latitude: 0,
+      longitude: 0,
+      streetId: 8143,
+      portalNumber: 1234,
+      locality: 'MONTEVIDEO',
+      type: 'CALLEyPORTAL',
+    });
+    const apiException = new ApiException('Service Unavailable', 503, '', {}, null);
+    addressesClient.resolveAddress.mockReturnValue(throwError(() => apiException));
+
+    let received: unknown;
+    let errored = false;
+
+    service.resolveIfNeeded(suggestion).subscribe({
+      next: (result) => {
+        received = result;
+      },
+      error: () => {
+        errored = true;
+      },
+    });
+
+    expect(errored).toBe(false);
+    expect(received).toBeNull();
   });
 });

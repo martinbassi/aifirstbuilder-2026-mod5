@@ -161,3 +161,11 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   reencodaba mal y la clasificación siempre fallaba, cayendo en silencio a `Pending` sin haber sido
   evaluada. `NsfwSpyClassifier` ahora reencoda WebP a PNG por nombre de enum (`MagickFormat.Png`)
   antes de llamar a NsfwSpy, evitando su branch interno roto.
+- **FIX-005**: las sugerencias de calle+número del autocomplete de direcciones (FEAT-011) quedaban
+  en `lat: 0, lng: 0` al seleccionarlas — `/api/v1/geocode/candidates` del proveedor externo
+  `direcciones.ide.uy` nunca resuelve coordenadas para ese tipo de resultado, incluso para
+  direcciones reales de Montevideo. Se agregó un segundo llamado (`GET /api/addresses/resolve` →
+  `/api/v1/geocode/find` del proveedor) disparado solo al seleccionar una sugerencia con
+  coordenadas en 0 — no en cada tecleo de búsqueda, para no multiplicar las llamadas salientes al
+  proveedor gratuito. Si tampoco puede resolverse ahí, revela el mismo fallback manual de
+  latitud/longitud que ya existía para un proveedor caído.

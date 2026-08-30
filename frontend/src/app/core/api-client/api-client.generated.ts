@@ -177,6 +177,95 @@ export class AddressesClient {
         }
         return _observableOf(null as any);
     }
+
+    /**
+     * @param streetId (optional) 
+     * @param portal (optional) 
+     * @param locality (optional) 
+     * @param type (optional) 
+     * @return OK
+     */
+    resolveAddress(streetId?: number | undefined, portal?: number | undefined, locality?: string | undefined, type?: string | undefined): Observable<ResolveAddressResponse> {
+        let url_ = this.baseUrl + "/api/addresses/resolve?";
+        if (streetId === null)
+            throw new globalThis.Error("The parameter 'streetId' cannot be null.");
+        else if (streetId !== undefined)
+            url_ += "streetId=" + encodeURIComponent("" + streetId) + "&";
+        if (portal === null)
+            throw new globalThis.Error("The parameter 'portal' cannot be null.");
+        else if (portal !== undefined)
+            url_ += "portal=" + encodeURIComponent("" + portal) + "&";
+        if (locality === null)
+            throw new globalThis.Error("The parameter 'locality' cannot be null.");
+        else if (locality !== undefined)
+            url_ += "locality=" + encodeURIComponent("" + locality) + "&";
+        if (type === null)
+            throw new globalThis.Error("The parameter 'type' cannot be null.");
+        else if (type !== undefined)
+            url_ += "type=" + encodeURIComponent("" + type) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processResolveAddress(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processResolveAddress(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<ResolveAddressResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<ResolveAddressResponse>;
+        }));
+    }
+
+    protected processResolveAddress(response: HttpResponseBase): Observable<ResolveAddressResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = ResolveAddressResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ProblemDetails.fromJS(resultData400);
+            return throwException("Bad Request", status, _responseText, _headers, result400);
+            }));
+        } else if (status === 401) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result401: any = null;
+            let resultData401 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result401 = ProblemDetails.fromJS(resultData401);
+            return throwException("Unauthorized", status, _responseText, _headers, result401);
+            }));
+        } else if (status === 503) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("Service Unavailable", status, _responseText, _headers);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
 }
 
 @Injectable()
@@ -962,6 +1051,10 @@ export class AddressSuggestionDto implements IAddressSuggestionDto {
     address?: string | undefined;
     latitude?: number;
     longitude?: number;
+    streetId?: number;
+    locality?: string | undefined;
+    portalNumber?: number;
+    type?: string | undefined;
 
     constructor(data?: IAddressSuggestionDto) {
         if (data) {
@@ -977,6 +1070,10 @@ export class AddressSuggestionDto implements IAddressSuggestionDto {
             this.address = _data["address"];
             this.latitude = _data["latitude"];
             this.longitude = _data["longitude"];
+            this.streetId = _data["streetId"];
+            this.locality = _data["locality"];
+            this.portalNumber = _data["portalNumber"];
+            this.type = _data["type"];
         }
     }
 
@@ -992,6 +1089,10 @@ export class AddressSuggestionDto implements IAddressSuggestionDto {
         data["address"] = this.address;
         data["latitude"] = this.latitude;
         data["longitude"] = this.longitude;
+        data["streetId"] = this.streetId;
+        data["locality"] = this.locality;
+        data["portalNumber"] = this.portalNumber;
+        data["type"] = this.type;
         return data;
     }
 }
@@ -1000,6 +1101,10 @@ export interface IAddressSuggestionDto {
     address?: string | undefined;
     latitude?: number;
     longitude?: number;
+    streetId?: number;
+    locality?: string | undefined;
+    portalNumber?: number;
+    type?: string | undefined;
 }
 
 export class CreateMuralResponse implements ICreateMuralResponse {
@@ -1572,6 +1677,42 @@ export class RegisterUserResponse implements IRegisterUserResponse {
 export interface IRegisterUserResponse {
     id?: string;
     username?: string | undefined;
+}
+
+export class ResolveAddressResponse implements IResolveAddressResponse {
+    suggestion?: AddressSuggestionDto;
+
+    constructor(data?: IResolveAddressResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.suggestion = _data["suggestion"] ? AddressSuggestionDto.fromJS(_data["suggestion"]) : undefined as any;
+        }
+    }
+
+    static fromJS(data: any): ResolveAddressResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new ResolveAddressResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["suggestion"] = this.suggestion ? this.suggestion.toJSON() : undefined as any;
+        return data;
+    }
+}
+
+export interface IResolveAddressResponse {
+    suggestion?: AddressSuggestionDto;
 }
 
 export class ReverseGeocodeResponse implements IReverseGeocodeResponse {

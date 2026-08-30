@@ -8,16 +8,18 @@ namespace Paretto.Infrastructure.Geocoding;
 
 /// <summary>
 /// HTTP client for the external, free, key-less geocoding provider `direcciones.ide.uy` (see spec
-/// Block 1 FEAT-011). Registered as a dedicated typed client (`AddHttpClient&lt;IAddressProviderClient,
-/// IdeUruguayAddressProviderClient&gt;`, Program.cs) — it shares no `DelegatingHandler` with the rest
-/// of the API, so no session cookie/token can ever leak to this third party (threat model R4).
+/// Block 1 FEAT-011 and spec FIX-005). Registered as a dedicated typed client
+/// (`AddHttpClient&lt;IAddressProviderClient, IdeUruguayAddressProviderClient&gt;`, Program.cs) — it
+/// shares no `DelegatingHandler` with the rest of the API, so no session cookie/token can ever leak
+/// to this third party (threat model R4).
 ///
 /// Never propagates an exception to its callers (`SearchAddressesQueryHandler`/
-/// `ReverseGeocodeQueryHandler`): `HttpRequestException`, a timeout, or a deserialization failure are
-/// all caught, logged as a Warning (never an empty catch, AGENTS.md) and reported as
-/// <see cref="AddressProviderOutcome.Unavailable"/> instead — same never-throwing contract as
-/// `NsfwSpyContentScanner`, though the mechanism differs: this is a real HTTP call, bounded by
-/// `HttpClient.Timeout` (native), not a CPU-bound operation raced manually with `Task.WhenAny`.
+/// `ReverseGeocodeQueryHandler`/`ResolveAddressQueryHandler`): `HttpRequestException`, a timeout, or
+/// a deserialization failure are all caught, logged as a Warning (never an empty catch, AGENTS.md)
+/// and reported as <see cref="AddressProviderOutcome.Unavailable"/> instead — same never-throwing
+/// contract as `NsfwSpyContentScanner`, though the mechanism differs: this is a real HTTP call,
+/// bounded by `HttpClient.Timeout` (native), not a CPU-bound operation raced manually with
+/// `Task.WhenAny`.
 /// </summary>
 public class IdeUruguayAddressProviderClient : IAddressProviderClient
 {
@@ -112,20 +114,62 @@ public class IdeUruguayAddressProviderClient : IAddressProviderClient
         }
     }
 
+    /// <summary>
+    /// FIX-005: `/candidates` never resolves coordinates for `CALLEyPORTAL` results (always
+    /// `lat: 0, lng: 0`, confirmed live against the real provider — see docs/daw/specs/rca-FIX-005.md)
+    /// — `/find` does, given the street/portal/locality/type a candidate already reported. Same
+    /// never-throwing contract as `SearchAsync`/`ReverseGeocodeAsync`, same "no result is not an
+    /// error" criterion as `ReverseGeocodeAsync` (empty array → `Success` with `Data: null`, never
+    /// `Unavailable`). `locality`/`type` are escaped the same way `q` is in `SearchAsync` — the host
+    /// stays fixed by configuration, only these query params vary (threat model R5).
+    /// </summary>
+    public async Task<AddressProviderResult<AddressSuggestionDto?>> ResolveAsync(int streetId, int portalNumber, string locality, string type, CancellationToken ct)
+    {
+        try
+        {
+            var requestUri =
+                $"api/v1/geocode/find?idcalle={streetId}&portal={portalNumber}" +
+                $"&localidad={Uri.EscapeDataString(locality)}&type={Uri.EscapeDataString(type)}";
+            var payload = await _httpClient.GetFromJsonAsync<List<IdeGeocodeResultWire>>(requestUri, JsonOptions, ct);
+
+            var suggestion = payload is { Count: > 0 } ? ToSuggestion(payload[0]) : null;
+
+            return new AddressProviderResult<AddressSuggestionDto?>
+            {
+                Outcome = AddressProviderOutcome.Success,
+                Data = suggestion,
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Address provider resolve failed or timed out; treating it as unavailable.");
+            return new AddressProviderResult<AddressSuggestionDto?> { Outcome = AddressProviderOutcome.Unavailable };
+        }
+    }
+
     private static AddressSuggestionDto ToSuggestion(IdeGeocodeResultWire wire) => new()
     {
         Address = wire.Address,
         Latitude = wire.Lat,
         Longitude = wire.Lng,
+        StreetId = wire.IdCalle,
+        Locality = wire.Localidad,
+        PortalNumber = wire.PortalNumber,
+        Type = wire.Type,
     };
 
     /// <summary>
     /// Wire shape of the provider's real response — verified live against `direcciones.ide.uy` for
-    /// both `/api/v1/geocode/candidates` and `/api/v1/geocode/reverse`: a JSON array at the root
-    /// (never a wrapper object), each element carrying lowercase `address`/`lat`/`lng`. Kept private
-    /// and mapped explicitly to the public <see cref="AddressSuggestionDto"/> so that contract stays
-    /// clean and decoupled from the provider's raw shape — nothing outside this class depends on
-    /// this type.
+    /// `/api/v1/geocode/candidates`, `/api/v1/geocode/reverse` and `/api/v1/geocode/find`: a JSON
+    /// array at the root (never a wrapper object), each element carrying lowercase
+    /// `address`/`lat`/`lng`/`idCalle`/`localidad`/`portalNumber`/`type`. `IdCalle`/`Localidad` keep
+    /// the provider's own (Spanish) property names here on purpose — this type exists ONLY to match
+    /// the external JSON for deserialization (`JsonSerializerOptions.PropertyNameCaseInsensitive`
+    /// covers casing, not the name itself), never used outside `ToSuggestion` below. Everything past
+    /// that mapping — <see cref="AddressSuggestionDto"/> and the rest of the codebase — uses English
+    /// names (`StreetId`/`Locality`), per AGENTS.md. Kept private and mapped explicitly so that
+    /// contract stays clean and decoupled from the provider's raw shape — nothing outside this class
+    /// depends on this type.
     /// </summary>
     private sealed class IdeGeocodeResultWire
     {
@@ -134,5 +178,13 @@ public class IdeUruguayAddressProviderClient : IAddressProviderClient
         public double Lat { get; set; }
 
         public double Lng { get; set; }
+
+        public int IdCalle { get; set; }
+
+        public string Localidad { get; set; } = string.Empty;
+
+        public int PortalNumber { get; set; }
+
+        public string Type { get; set; } = string.Empty;
     }
 }

@@ -314,24 +314,39 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
    * que `submit()` envía no cambia) y reutiliza `setCoordinatesInMap()`, el mismo método privado ya
    * usado desde `requestGeolocation()`.
    *
+   * FIX-005: pasa siempre por `addressService.resolveIfNeeded()` — esa regla ("0,0 significa que el
+   * proveedor no resolvió la ubicación en `/candidates`, hay que pedirla aparte") vive en el
+   * servicio, no acá (hallazgo del arch audit). Cuando la sugerencia ya trae coordenadas reales,
+   * `resolveIfNeeded()` devuelve la misma sugerencia de forma síncrona (`of(...)`), así que este
+   * `subscribe` se resuelve en el mismo tick — no cambia el comportamiento síncrono ya existente
+   * para ese caso.
+   *
    * Asunción (el spec no lo especifica): también limpia `manualLocationRequired`. El div
    * `#location-preview` que `setCoordinatesInMap()` necesita solo existe en el DOM cuando NINGÚN
    * fallback manual está activo (ver template) — si el usuario denegó el GPS y luego resuelve la
    * ubicación eligiendo una dirección, ya no tiene sentido seguir mostrando el fallback manual de
-   * lat/lng: la dirección seleccionada es una ubicación válida y resuelta. `addressProviderUnavailable`
-   * no se toca: seleccionar una sugerencia implica que el proveedor SÍ respondió. */
+   * lat/lng: la dirección seleccionada es una ubicación válida y resuelta. */
   onAddressSuggestionSelected(suggestion: AddressSuggestion): void {
-    const latitude = suggestion.latitude ?? null;
-    const longitude = suggestion.longitude ?? null;
-
-    this.latitude.set(latitude);
-    this.longitude.set(longitude);
     this.addressQuery.set(suggestion.address ?? '');
 
-    if (latitude !== null && longitude !== null) {
-      this.manualLocationRequired.set(false);
-      this.setCoordinatesInMap({ latitude, longitude });
-    }
+    this.addressService.resolveIfNeeded(suggestion).subscribe((resolved) => {
+      const latitude = resolved?.latitude ?? null;
+      const longitude = resolved?.longitude ?? null;
+
+      this.latitude.set(latitude);
+      this.longitude.set(longitude);
+
+      if (latitude !== null && longitude !== null) {
+        // El proveedor SÍ respondió (con o sin necesidad del segundo llamado a resolve()).
+        this.addressProviderUnavailable.set(false);
+        this.manualLocationRequired.set(false);
+        this.setCoordinatesInMap({ latitude, longitude });
+      } else {
+        // resolveIfNeeded() devolvió null: el proveedor no pudo resolver esta ubicación (sin
+        // resultado en /find, o /find falló) — mismo fallback manual que AC-19.
+        this.addressProviderUnavailable.set(true);
+      }
+    });
   }
 
   submit(): void {
