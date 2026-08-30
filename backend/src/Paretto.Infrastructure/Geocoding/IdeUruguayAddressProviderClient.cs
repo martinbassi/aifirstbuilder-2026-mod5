@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Paretto.Infrastructure.Geocoding;
@@ -27,6 +28,18 @@ public class IdeUruguayAddressProviderClient : IAddressProviderClient
     private readonly HttpClient _httpClient;
     private readonly ILogger<IdeUruguayAddressProviderClient> _logger;
 
+    /// <summary>
+    /// QUICK-FIX-002: `[ActivatorUtilitiesConstructor]` le dice explícitamente a `ActivatorUtilities`
+    /// cuál de los dos constructores usar al activar este typed client (`AddHttpClient&lt;TClient,
+    /// TImplementation&gt;`, Program.cs) — sin él, la activación tira `InvalidOperationException`
+    /// ("Multiple constructors...") porque no desambigua entre este constructor y el de 3 args de
+    /// abajo (ambos empiezan con `HttpClient`). `AddScoped` (usado por `NsfwSpyContentScanner`, con
+    /// la misma forma de 2 constructores) no tiene este problema: su algoritmo de selección sí
+    /// descarta constructores cuyos parámetros extra no están registrados en el contenedor —
+    /// `AddHttpClient`, en cambio, activa con el `HttpClient` pasado explícitamente y no aplica ese
+    /// descarte.
+    /// </summary>
+    [ActivatorUtilitiesConstructor]
     public IdeUruguayAddressProviderClient(HttpClient httpClient, ILogger<IdeUruguayAddressProviderClient> logger)
     {
         _httpClient = httpClient;
