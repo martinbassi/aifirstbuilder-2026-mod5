@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Threading.RateLimiting;
 using FluentValidation;
@@ -220,6 +221,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
     app.UseCors("DevelopmentCors");
+
+    // QUICK-FIX-004: nswag.json fetches the live swagger.json, so it can only run once Kestrel is
+    // actually listening — never as a build step. Fire-and-forget: never blocks startup/requests.
+    app.Lifetime.ApplicationStarted.Register(() => Process.Start("nswag", "run nswag.json"));
 }
 
 app.UseHttpsRedirection();
