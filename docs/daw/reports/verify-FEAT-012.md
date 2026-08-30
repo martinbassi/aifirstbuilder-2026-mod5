@@ -171,3 +171,53 @@ requieren un dispositivo físico en la LAN y otro fuera de ella. El usuario deci
 avanzar con el resto del cierre y ejecutar estas 2 verificaciones él mismo después
 ("Arreglás lo tuyo ahora, yo hago las 2 verificaciones con el celular después"). Documentado acá
 como excepción de proceso aceptada, no como gap silencioso.
+
+## Ronda 2 — VERIFY — 2026-08-30
+
+Ejecutado por el agente `daw-module-verifier` (cross-verificación independiente, sin haber escrito
+el código). No se limitó a leer el reporte del corrective loop: reprodujo AC-05 y AC-08 de forma
+independiente (stub de `hostname -I` con IP nueva y con salida vacía) y re-corrió la suite completa
+por su cuenta.
+
+### Trazabilidad PRD → Código → Tests (9 AC) — ronda 2
+
+| AC | Resultado | Detalle |
+|----|-----------|---------|
+| AC-01 | ✅ PASS | `Program.cs` (dual binding) + `dev-lan.sh` — arranque real confirmado (Block 3) |
+| AC-02 | ⚠️ WARN | Mitad backend PASS con evidencia real (curl, 3 Origins distintos, reproducible); mitad E2E pendiente del usuario — excepción de proceso, no FAIL |
+| AC-03 | ✅ PASS | `LanModeTests.cs` — verde (149/149) |
+| AC-04 | ⚠️ WARN | Sin evidencia escrita explícita, pero no depende de código nuevo (mismo comando que AC-03) — no bloqueante, igual que ronda 1 |
+| AC-05 | ✅ PASS | Evidencia real **reproducida de forma independiente** en esta ronda (stub de `hostname -I`) |
+| AC-06 | ✅ PASS | `trap cleanup()` confirmado (Block 3) |
+| AC-07 | ⚠️ WARN | Requiere dispositivo físico fuera de la LAN — pendiente del usuario, excepción de proceso, no FAIL |
+| AC-08 | ✅ PASS | Evidencia real **reproducida de forma independiente** en esta ronda (stub con salida vacía, exit 1, sin procesos huérfanos) |
+| AC-09 | ✅ PASS | `app.config.spec.ts` — verde |
+
+### Spec — bloques (ronda 2)
+- ✅ Block 1: 2/2 archivos, 2/2 tests, 149/149 verde, 0 warnings de build.
+- ✅ Block 2: 3/3 archivos, 2/2 tests, 186/186 verde, `tsc`/`ng lint` limpios.
+- ✅ Block 3: 8/8 verificaciones del checklist — 6 con evidencia escrita ejecutada, 2 diferidas al
+  usuario (AC-02 E2E, AC-07) como excepción de proceso documentada, no como ítem incompleto.
+
+### Regresiones y calidad
+- Backend: `dotnet test` → 149/149 PASSED (re-ejecutado independientemente).
+- Frontend: `ng test --watch=false` → 186/186 PASSED (re-ejecutado independientemente). El fallo de
+  `create-mural-form.component.spec.ts` (NG04002, ruta `discover`) es preexistente en `main`
+  (confirmado 184/184 mismos errores vía worktree temporal), no introducido por FEAT-012.
+- Lint/tsc limpios en ambos lados. Sin código muerto, sin residuos del test de CORS descartado.
+- Cobertura: sin cambios de código de producción desde ronda 1 → se mantiene 100% líneas/branches
+  sobre el diff nuevo de Block 1/Block 2.
+- Threat model / SAST: sin hallazgos nuevos; R1 (HTTP plano en LAN) sigue como riesgo aceptado en
+  PLAN, sin cambios.
+
+### Veredicto ronda 2
+
+```
+Total: 12 PASS, 0 FAIL, 3 WARN (AC-02 mitad E2E, AC-04, AC-07 — no bloqueantes / pendientes de
+verificación manual del usuario, excepción de proceso explícitamente acordada)
+Result: PASSED
+```
+
+**Acción:** `gates.verify = true`. Avanza a RELEASE. Quedan registradas como tarea post-release,
+no como bloqueo, las 2 verificaciones manuales pendientes del usuario con su celular (AC-02 E2E,
+AC-07).
