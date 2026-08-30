@@ -113,6 +113,17 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   visitante están a menos de 50 metros, se muestra un solo marcador (evita duplicados casi
   superpuestos), y si están más lejos se muestran ambos, distinguibles por forma además de color
   (pin coral vs. círculo celeste) por accesibilidad. Sin cambios de backend.
+- **FEAT-011 — Autocompletar dirección en el formulario de carga de mural**: reemplaza los inputs
+  crudos de latitud/longitud como entrada primaria por un campo de dirección con autocomplete
+  (debounce 300ms) contra `direcciones.ide.uy` (Uruguay), sin API key. El backend actúa de proxy
+  dedicado (`AddressesController`, `[Authorize]`, rate limit propio de 20 req/min por IP) — el
+  frontend nunca llama al proveedor externo directo, y el `HttpClient` que sí lo hace no comparte
+  `DelegatingHandler` con el resto de la API (sin fuga de sesión). GPS exitoso precompleta la
+  dirección vía reverse geocoding; seleccionar una sugerencia reutiliza el mini-mapa Leaflet ya
+  existente. Fallback a los inputs manuales de lat/lng cuando el proveedor externo no responde
+  (503), con un mensaje visible de "sin resultados" cuando la búsqueda no encuentra coincidencias.
+  Corrige de paso una regresión no relacionada: el botón de reintentar tras un guardado fallido
+  (AC-11) había quedado sin disparador en el HTML.
 
 ### Fixed
 
