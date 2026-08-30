@@ -124,6 +124,10 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   (503), con un mensaje visible de "sin resultados" cuando la búsqueda no encuentra coincidencias.
   Corrige de paso una regresión no relacionada: el botón de reintentar tras un guardado fallido
   (AC-11) había quedado sin disparador en el HTML.
+- **QUICK-FIX-004 — Auto-regenerar el cliente NSwag en desarrollo**: correr `dotnet run` del backend
+  en Development ahora regenera automáticamente `api-client.generated.ts` (fire-and-forget, apenas
+  Kestrel empieza a escuchar) — ya no hace falta correr `nswag run nswag.json` a mano después de
+  tocar un DTO o un endpoint. Sin efecto en producción.
 
 ### Fixed
 
