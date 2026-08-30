@@ -117,6 +117,57 @@ public class IdeUruguayAddressProviderClientTests
         Assert.Null(result.Data);
     }
 
+    // FIX-005 — regression test: sin ResolveAsync, no hay forma de resolver un CALLEyPORTAL cuyas
+    // coordenadas vienen en 0,0 desde /candidates (RCA confirmado contra el proveedor real).
+    [Fact]
+    public async Task Resolve_with_a_valid_200_response_returns_success_with_real_coordinates()
+    {
+        const string json = """
+            [ { "address": "Bulevar General Artigas 1234, Montevideo", "lat": -34.9059, "lng": -56.1639, "idCalle": 8143, "localidad": "MONTEVIDEO", "portalNumber": 1234, "type": "CALLEyPORTAL" } ]
+            """;
+        var handler = new FakeHttpMessageHandler(_ => Task.FromResult(JsonResponse(json)));
+        var httpClient = BuildHttpClient(handler);
+        var logger = new RecordingLogger<IdeUruguayAddressProviderClient>();
+        var client = new IdeUruguayAddressProviderClient(httpClient, logger);
+
+        var result = await client.ResolveAsync(8143, 1234, "MONTEVIDEO", "CALLEyPORTAL", CancellationToken.None);
+
+        Assert.Equal(AddressProviderOutcome.Success, result.Outcome);
+        Assert.NotNull(result.Data);
+        Assert.Equal(-34.9059, result.Data!.Latitude);
+        Assert.Equal(-56.1639, result.Data!.Longitude);
+        Assert.NotEqual(0, result.Data!.Latitude);
+    }
+
+    [Fact]
+    public async Task Resolve_with_an_empty_array_returns_success_with_null_data()
+    {
+        const string json = "[]";
+        var handler = new FakeHttpMessageHandler(_ => Task.FromResult(JsonResponse(json)));
+        var httpClient = BuildHttpClient(handler);
+        var logger = new RecordingLogger<IdeUruguayAddressProviderClient>();
+        var client = new IdeUruguayAddressProviderClient(httpClient, logger);
+
+        var result = await client.ResolveAsync(8143, 1234, "MONTEVIDEO", "CALLEyPORTAL", CancellationToken.None);
+
+        Assert.Equal(AddressProviderOutcome.Success, result.Outcome);
+        Assert.Null(result.Data);
+    }
+
+    [Fact]
+    public async Task Resolve_with_a_network_failure_returns_unavailable_and_never_propagates()
+    {
+        var handler = new FakeHttpMessageHandler(_ => throw new HttpRequestException("simulated network failure"));
+        var httpClient = BuildHttpClient(handler);
+        var logger = new RecordingLogger<IdeUruguayAddressProviderClient>();
+        var client = new IdeUruguayAddressProviderClient(httpClient, logger);
+
+        var result = await client.ResolveAsync(8143, 1234, "MONTEVIDEO", "CALLEyPORTAL", CancellationToken.None);
+
+        Assert.Equal(AddressProviderOutcome.Unavailable, result.Outcome);
+        Assert.Contains(logger.Entries, e => e.LogLevel == LogLevel.Warning);
+    }
+
     private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)
     {
         Content = new StringContent(json, Encoding.UTF8, "application/json"),

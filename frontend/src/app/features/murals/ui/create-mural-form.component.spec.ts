@@ -78,7 +78,11 @@ async function flushGeolocation(fixture: { detectChanges: () => void }): Promise
 describe('CreateMuralFormComponent', () => {
   let muralService: { create: ReturnType<typeof vi.fn> };
   let geolocationService: { getCurrentPosition: ReturnType<typeof vi.fn> };
-  let addressService: { search: ReturnType<typeof vi.fn>; reverseGeocode: ReturnType<typeof vi.fn> };
+  let addressService: {
+    search: ReturnType<typeof vi.fn>;
+    reverseGeocode: ReturnType<typeof vi.fn>;
+    resolveIfNeeded: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     muralService = { create: vi.fn() };
@@ -86,9 +90,13 @@ describe('CreateMuralFormComponent', () => {
     // Default: sin resultados / sin match — cada test de Block 3 sobreescribe lo que necesita.
     // Ambos métodos deben existir en TODOS los tests (incluso los que no tocan direcciones), porque
     // `requestGeolocation()` siempre invoca `reverseGeocode()` tras un GPS exitoso (spec Block 3).
+    // `resolveIfNeeded` (FIX-005) por default hace passthrough (`of(s)`) — el mismo comportamiento
+    // síncrono que la implementación real tiene para una sugerencia con coordenadas ya reales, que
+    // es el caso de todos los tests existentes anteriores a FIX-005.
     addressService = {
       search: vi.fn().mockReturnValue(of([])),
       reverseGeocode: vi.fn().mockReturnValue(of(null)),
+      resolveIfNeeded: vi.fn().mockImplementation((s) => of(s)),
     };
 
     TestBed.configureTestingModule({
@@ -542,6 +550,74 @@ describe('CreateMuralFormComponent', () => {
     expect(component.latitude()).toBe(-34.9);
     expect(component.longitude()).toBe(-56.16);
     expect(setCoordinatesSpy).toHaveBeenCalledWith({ latitude: -34.9, longitude: -56.16 });
+  });
+
+  // FIX-005 — Required test: seleccionar una sugerencia CALLEyPORTAL con 0,0 llama a
+  // resolveIfNeeded() y fija las coordenadas resueltas.
+  it('seleccionar una sugerencia con 0,0 llama a resolveIfNeeded() y fija las coordenadas resueltas', async () => {
+    stubGeolocation(geolocationService, 'success', { latitude: -34.6, longitude: -58.4 });
+
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await flushGeolocation(fixture);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const setCoordinatesSpy = vi.spyOn(component as any, 'setCoordinatesInMap');
+
+    const unresolved: AddressSuggestion = new AddressSuggestionDto({
+      address: 'Bulevar General Artigas 1234, Montevideo',
+      latitude: 0,
+      longitude: 0,
+      streetId: 8143,
+      portalNumber: 1234,
+      locality: 'MONTEVIDEO',
+      type: 'CALLEyPORTAL',
+    });
+    const resolved: AddressSuggestion = new AddressSuggestionDto({
+      address: 'Bulevar General Artigas 1234, Montevideo',
+      latitude: -34.9059,
+      longitude: -56.1639,
+    });
+    addressService.resolveIfNeeded.mockReturnValue(of(resolved));
+
+    component.onAddressSuggestionSelected(unresolved);
+
+    expect(addressService.resolveIfNeeded).toHaveBeenCalledWith(unresolved);
+    expect(component.latitude()).toBe(-34.9059);
+    expect(component.longitude()).toBe(-56.1639);
+    expect(setCoordinatesSpy).toHaveBeenCalledWith({ latitude: -34.9059, longitude: -56.1639 });
+  });
+
+  // FIX-005 — Required test: resolveIfNeeded() sin resultado revela el fallback manual.
+  it('seleccionar una sugerencia que resolveIfNeeded() no puede resolver revela el fallback manual', async () => {
+    stubGeolocation(geolocationService, 'success', { latitude: -34.6, longitude: -58.4 });
+
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await flushGeolocation(fixture);
+
+    const unresolved: AddressSuggestion = new AddressSuggestionDto({
+      address: 'Dirección inexistente 1234',
+      latitude: 0,
+      longitude: 0,
+      streetId: 99999,
+      portalNumber: 1234,
+      locality: 'MONTEVIDEO',
+      type: 'CALLEyPORTAL',
+    });
+    addressService.resolveIfNeeded.mockReturnValue(of(null));
+
+    component.onAddressSuggestionSelected(unresolved);
+    fixture.detectChanges();
+
+    expect(component.latitude()).toBeNull();
+    expect(component.longitude()).toBeNull();
+    const fallbackAlert = fixture.nativeElement.querySelector(
+      '[data-testid="location-fallback-alert"]',
+    );
+    expect(fallbackAlert).toBeTruthy();
   });
 
   // Required test 3: search() sin coincidencias muestra el estado "sin resultados" sin marcar

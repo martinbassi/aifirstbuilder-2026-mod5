@@ -61,4 +61,27 @@ public class AddressesController : ControllerBase
         var response = await _mediator.Send(new ReverseGeocodeQuery { Latitude = lat, Longitude = lng }, cancellationToken);
         return Ok(response);
     }
+
+    /// <summary>
+    /// FIX-005: resolves the real coordinates of a `CALLEyPORTAL` suggestion that `search` returned
+    /// with 0,0 (see docs/daw/specs/rca-FIX-005.md). `Name = "ResolveAddress"`, same reasoning as
+    /// `search`/`reverse` above.
+    /// </summary>
+    [HttpGet("resolve", Name = "ResolveAddress")]
+    [ProducesResponseType(typeof(ResolveAddressResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> Resolve(
+        [FromQuery] int streetId,
+        [FromQuery] int portal,
+        [FromQuery] string locality,
+        [FromQuery] string type,
+        CancellationToken cancellationToken)
+    {
+        var response = await _mediator.Send(
+            new ResolveAddressQuery { StreetId = streetId, PortalNumber = portal, Locality = locality, Type = type },
+            cancellationToken);
+        return Ok(response);
+    }
 }

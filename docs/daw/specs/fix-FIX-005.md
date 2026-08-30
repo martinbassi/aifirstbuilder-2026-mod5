@@ -166,8 +166,12 @@ NSwag la regenere desde el backend ya implementado.
 - `/find` responde sin resultados (array vacío) → `Success` con `Data: null` → 200 con
   `suggestion: null` → `resolveIfNeeded()` lo trata igual que un 503 a fines de UX (devuelve `null`,
   revela fallback manual), aunque el status HTTP sea distinto.
-- `streetId`/`portal` ≤ 0 o `locality`/`type` vacíos → 422 (FluentValidation), no debería ocurrir en
-  uso normal (el frontend siempre los completa desde una sugerencia real) pero cubre el contrato
+- `streetId`/`portal` ≤ 0 → 422 (FluentValidation, `GreaterThan(0)`). `locality`/`type` vacíos → 400,
+  no 422 — un `string` no-nullable vacío en un query param dispara la validación automática de
+  `[ApiController]` (nullable reference types habilitado en el `.csproj`) antes de que la request
+  llegue al pipeline de FluentValidation, mismo comportamiento ya establecido por
+  `Search_with_an_empty_q_returns_400` para el parámetro `q` de `search`. Ninguno debería ocurrir en
+  uso normal (el frontend siempre los completa desde una sugerencia real) pero cubren el contrato
   público del endpoint.
 - Sin sesión → 401 (`[Authorize]`, ya heredado).
 - Más de 20 requests/minuto → 429 (policy `"addresses"` compartida a nivel de clase en
@@ -190,8 +194,9 @@ NSwag la regenere desde el backend ya implementado.
   `Reverse_with_valid_coordinates_but_no_matches` para `reverse`).
 - [ ] `AddressesControllerTests`: `resolve` con proveedor `Unavailable` → 503.
 - [ ] `AddressesControllerTests`: `resolve` sin sesión → 401.
-- [ ] `AddressesControllerTests`: `resolve` con `streetId`/`portal` ≤ 0 o `locality`/`type` vacíos →
-  422.
+- [ ] `AddressesControllerTests`: `resolve` con `streetId`/`portal` ≤ 0 → 422.
+- [ ] `AddressesControllerTests`: `resolve` con `locality`/`type` vacíos → 400 (validación
+  automática de `[ApiController]`, no FluentValidation).
 - [ ] `address.service.spec.ts`: `resolveIfNeeded()` con coordenadas ya reales no llama a la red;
   con 0,0 llama a `resolve()`; `resolve()` sin resultado o con 503 devuelve `null`.
 - [ ] `create-mural-form.component.spec.ts`: seleccionar sugerencia `CALLEyPORTAL` con 0,0 llama a

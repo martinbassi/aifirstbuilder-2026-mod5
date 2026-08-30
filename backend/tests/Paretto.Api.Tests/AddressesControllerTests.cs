@@ -63,15 +63,18 @@ public class AddressesControllerTests : IClassFixture<WebApplicationFactory<Prog
         private readonly AddressProviderOutcome _outcome;
         private readonly IReadOnlyList<AddressSuggestionDto> _searchData;
         private readonly AddressSuggestionDto? _reverseData;
+        private readonly AddressSuggestionDto? _resolveData;
 
         public FakeAddressProviderClient(
             AddressProviderOutcome outcome = AddressProviderOutcome.Success,
             IReadOnlyList<AddressSuggestionDto>? searchData = null,
-            AddressSuggestionDto? reverseData = null)
+            AddressSuggestionDto? reverseData = null,
+            AddressSuggestionDto? resolveData = null)
         {
             _outcome = outcome;
             _searchData = searchData ?? [];
             _reverseData = reverseData;
+            _resolveData = resolveData;
         }
 
         public Task<AddressProviderResult<IReadOnlyList<AddressSuggestionDto>>> SearchAsync(string query, CancellationToken ct) =>
@@ -86,6 +89,13 @@ public class AddressesControllerTests : IClassFixture<WebApplicationFactory<Prog
             {
                 Outcome = _outcome,
                 Data = _reverseData,
+            });
+
+        public Task<AddressProviderResult<AddressSuggestionDto?>> ResolveAsync(int streetId, int portalNumber, string locality, string type, CancellationToken ct) =>
+            Task.FromResult(new AddressProviderResult<AddressSuggestionDto?>
+            {
+                Outcome = _outcome,
+                Data = _resolveData,
             });
     }
 
@@ -281,5 +291,93 @@ public class AddressesControllerTests : IClassFixture<WebApplicationFactory<Prog
         var rejectedResponse = await client.GetAsync("/api/addresses/search?q=Bulevar+Artigas");
 
         Assert.Equal(HttpStatusCode.TooManyRequests, rejectedResponse.StatusCode);
+    }
+
+    // FIX-005 — GET /api/addresses/resolve: resuelve coordenadas reales de un CALLEyPORTAL que
+    // /search devolvió en 0,0.
+    [Fact]
+    public async Task Resolve_with_valid_params_and_a_provider_with_a_result_returns_200_with_real_coordinates()
+    {
+        var suggestion = new AddressSuggestionDto { Address = "Bulevar General Artigas 1234, Montevideo", Latitude = -34.9059, Longitude = -56.1639 };
+        var factory = CreateFactory(Guid.NewGuid().ToString(), new FakeAddressProviderClient(resolveData: suggestion));
+        var client = await AuthenticatedClientAsync(factory);
+
+        var response = await client.GetAsync("/api/addresses/resolve?streetId=8143&portal=1234&locality=MONTEVIDEO&type=CALLEyPORTAL");
+        var raw = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Expected 200, got {response.StatusCode}: {raw}");
+        var body = JsonDocument.Parse(raw).RootElement.GetProperty("suggestion");
+        Assert.Equal(-34.9059, body.GetProperty("latitude").GetDouble());
+        Assert.Equal(-56.1639, body.GetProperty("longitude").GetDouble());
+    }
+
+    [Fact]
+    public async Task Resolve_with_no_match_returns_200_with_a_null_suggestion_not_an_error()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString(), new FakeAddressProviderClient(resolveData: null));
+        var client = await AuthenticatedClientAsync(factory);
+
+        var response = await client.GetAsync("/api/addresses/resolve?streetId=8143&portal=1234&locality=MONTEVIDEO&type=CALLEyPORTAL");
+        var raw = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Expected 200, got {response.StatusCode}: {raw}");
+        var hasSuggestion = JsonDocument.Parse(raw).RootElement.TryGetProperty("suggestion", out var suggestion);
+        Assert.False(hasSuggestion && suggestion.ValueKind != JsonValueKind.Null, $"Expected no suggestion, got: {raw}");
+    }
+
+    [Fact]
+    public async Task Resolve_with_the_provider_unavailable_returns_503()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString(), new FakeAddressProviderClient(outcome: AddressProviderOutcome.Unavailable));
+        var client = await AuthenticatedClientAsync(factory);
+
+        var response = await client.GetAsync("/api/addresses/resolve?streetId=8143&portal=1234&locality=MONTEVIDEO&type=CALLEyPORTAL");
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Resolve_without_a_session_returns_401()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString(), new FakeAddressProviderClient());
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/addresses/resolve?streetId=8143&portal=1234&locality=MONTEVIDEO&type=CALLEyPORTAL");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(0, 1234, "MONTEVIDEO", "CALLEyPORTAL")]
+    [InlineData(8143, 0, "MONTEVIDEO", "CALLEyPORTAL")]
+    public async Task Resolve_with_an_invalid_numeric_param_is_rejected_with_422(int streetId, int portal, string locality, string type)
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString(), new FakeAddressProviderClient());
+        var client = await AuthenticatedClientAsync(factory);
+
+        var response = await client.GetAsync(
+            $"/api/addresses/resolve?streetId={streetId}&portal={portal}&locality={locality}&type={type}");
+
+        // Mismo criterio que Reverse_with_lat_or_lng_out_of_range_is_rejected: el pipeline
+        // compartido de FluentValidation resuelve en 422, no en 400.
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("", "CALLEyPORTAL")]
+    [InlineData("MONTEVIDEO", "")]
+    public async Task Resolve_with_an_empty_string_param_is_rejected_with_400(string locality, string type)
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString(), new FakeAddressProviderClient());
+        var client = await AuthenticatedClientAsync(factory);
+
+        var response = await client.GetAsync(
+            $"/api/addresses/resolve?streetId=8143&portal=1234&locality={locality}&type={type}");
+
+        // Mismo criterio que Search_with_an_empty_q_returns_400: un string no-nullable vacío en
+        // query params dispara la validación automática de [ApiController] (nullable reference
+        // types habilitado en el .csproj) ANTES de llegar al pipeline de FluentValidation — nunca
+        // llega al Validator, así que nunca puede ser 422.
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 }
