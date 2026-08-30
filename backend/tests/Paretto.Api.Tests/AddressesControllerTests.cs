@@ -282,4 +282,24 @@ public class AddressesControllerTests : IClassFixture<WebApplicationFactory<Prog
 
         Assert.Equal(HttpStatusCode.TooManyRequests, rejectedResponse.StatusCode);
     }
+
+    // QUICK-FIX-002: reproduce el InvalidOperationException ("Multiple constructors accepting all
+    // given argument types have been found") que la activación real de AddHttpClient tiraba para
+    // IdeUruguayAddressProviderClient antes del fix ([ActivatorUtilitiesConstructor]). A propósito
+    // sin FakeAddressProviderClient: CreateFactory(dbName) sin segundo argumento deja intacto el
+    // registro real de Program.cs (`AddHttpClient<IAddressProviderClient,
+    // IdeUruguayAddressProviderClient>`), el único camino que todos los demás tests de este archivo
+    // evitan al inyectar el fake. No hace falta ejercitar una llamada HTTP real al proveedor externo
+    // (evitaría depender de la red en CI) — el bug ocurre al CONSTRUIR la clase, antes de que emita
+    // ningún request, así que alcanza con resolver el servicio desde el contenedor real.
+    [Fact]
+    public void The_real_AddHttpClient_registration_constructs_IdeUruguayAddressProviderClient_without_DI_ambiguity()
+    {
+        var factory = CreateFactory(Guid.NewGuid().ToString());
+
+        using var scope = factory.Services.CreateScope();
+        var exception = Record.Exception(() => scope.ServiceProvider.GetRequiredService<IAddressProviderClient>());
+
+        Assert.Null(exception);
+    }
 }
