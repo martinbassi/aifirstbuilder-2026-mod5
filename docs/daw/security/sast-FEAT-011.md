@@ -63,3 +63,13 @@ Ninguna. 0 hallazgos Medium que requieran documentación de excepción (§4.4).
 
 **Total: 0 vulnerabilidades (0 Critical, 0 High, 0 Medium sin mitigar).**
 **Next:** `gates.sast = true` → cerrar CODE, avanzar a VERIFY.
+
+## Ronda 2 — 2026-08-30 (loop correctivo VERIFY, fix de AC-18)
+
+**Alcance:** diff acotado de 4 archivos frontend (72 líneas) — `create-mural-form.component.ts/html/css/spec.ts` — agregando el mensaje visible de "sin resultados" del autocomplete de direcciones.
+
+- ✅ F-SAST-06 (XSS): el nuevo mensaje ("No encontramos direcciones que coincidan.") es texto estático interpolado con `{{ }}`, no recibe ningún dato del proveedor externo ni de input de usuario.
+- ✅ Sin nuevos endpoints, llamadas HTTP ni paths de input de usuario — solo lógica local nueva de signals/computed (`addressSearchResolved`, `addressNoResults`).
+- ✅ F-SAST-13: sin dependencias nuevas (`git diff package.json` vacío).
+
+**Total: 0 vulnerabilidades. `gates.sast = true`.**

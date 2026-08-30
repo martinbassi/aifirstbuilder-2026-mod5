@@ -124,6 +124,13 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
   readonly addressQuery = signal<string>('');
   /** Sugerencias vigentes del autocomplete (AC-17/AC-18). */
   readonly addressSuggestions = signal<AddressSuggestion[]>([]);
+  /** True una vez que el pipeline de autocomplete resolvió una búsqueda con texto no vacío
+   * (`search()` completó, con o sin coincidencias). Distingue "todavía no busqué nada" —el estado
+   * inicial, o una dirección precompletada por GPS/reverse geocoding que nunca pasó por este
+   * pipeline— de "busqué y no hubo resultados" (AC-18); sin esta señal, `addressNoResults`
+   * mostraría el mensaje incorrectamente en esos casos. Se resetea a `false` en cada tecla nueva
+   * (`onAddressQueryChange`) para no dejar el mensaje pegado mientras el debounce todavía corre. */
+  private readonly addressSearchResolved = signal(false);
   /** True cuando `address.service.ts#search` devolvió un error de proveedor caído (503, AC-19) —
    * señal DELIBERADAMENTE separada de `manualLocationRequired`: una es "GPS denegado", la otra "el
    * proveedor de direcciones externo no responde"; el template necesita distinguirlas para mostrar
@@ -132,6 +139,18 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
 
   /** Alimenta el pipeline de autocomplete (debounce 300ms, NFR-04) desde `onAddressQueryChange`. */
   private readonly addressQuery$ = new Subject<string>();
+
+  /** True cuando una búsqueda ya resuelta no trajo coincidencias (AC-18) — el proveedor respondió
+   * (nunca junto con `addressProviderUnavailable`, que ya tiene su propio mensaje) y el usuario
+   * efectivamente escribió algo (nunca en el estado inicial ni con una dirección precompletada por
+   * GPS que todavía no pasó por el pipeline de búsqueda). */
+  readonly addressNoResults = computed(
+    () =>
+      this.addressSearchResolved() &&
+      this.addressQuery().trim().length > 0 &&
+      this.addressSuggestions().length === 0 &&
+      !this.addressProviderUnavailable(),
+  );
 
   readonly submitting = signal(false);
   readonly successMessage = signal<string | null>(null);
@@ -191,6 +210,7 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
       )
       .subscribe((suggestions) => {
         this.addressSuggestions.set(suggestions);
+        this.addressSearchResolved.set(true);
       });
   }
 
@@ -286,6 +306,7 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
   onAddressQueryChange(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
     this.addressQuery.set(value);
+    this.addressSearchResolved.set(false);
     this.addressQuery$.next(value);
   }
 

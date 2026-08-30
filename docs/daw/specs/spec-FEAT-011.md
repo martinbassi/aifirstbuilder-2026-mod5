@@ -171,7 +171,7 @@ Ninguno — este bloque no persiste nada ni modifica el esquema. Es un proxy sin
 | Error | Manejo |
 |---|---|
 | `q` vacío o > 200 caracteres | `400` vía el pipeline de FluentValidation existente |
-| `lat`/`lng` fuera de rango | `400` vía FluentValidation |
+| `lat`/`lng` fuera de rango | `422` vía FluentValidation (mismo código que el resto del pipeline de validación del proyecto, p. ej. `Coordinates_outside_the_valid_range_are_rejected_with_422` en `CreateMuralTests.cs`; corregido en el loop correctivo de VERIFY, este spec decía `400` originalmente) |
 | Sin sesión activa | `401` vía `[Authorize]` (comportamiento estándar ya usado en `MuralsController`) |
 | Proveedor externo no responde, timeout, o error de red | Cliente de infraestructura nunca lanza; Handler lanza `AddressProviderUnavailableException` → `503` vía `ExceptionHandlingMiddleware` (AC-19) |
 | Proveedor externo responde sin coincidencias | No es un error: `200` con lista vacía (`search`) o `suggestion: null` (`reverse`) (AC-18) |
@@ -187,7 +187,7 @@ Ninguno — este bloque no persiste nada ni modifica el esquema. Es un proxy sin
 - [ ] `AddressesControllerTests`: `reverse` con coordenadas válidas y proveedor con resultado → `200` con `suggestion` (AC-03)
 - [ ] `AddressesControllerTests`: `reverse` con coordenadas válidas pero sin coincidencias (proveedor `Success` con dato nulo) → `200` con `suggestion: null`, no es un error
 - [ ] `AddressesControllerTests`: `reverse` con `Unavailable` → `503` (AC-19)
-- [ ] `AddressesControllerTests`: `reverse` con `lat`/`lng` fuera de rango → `400`
+- [ ] `AddressesControllerTests`: `reverse` con `lat`/`lng` fuera de rango → `422`
 - [ ] `IdeUruguayAddressProviderClientTests`: `HttpRequestException` del `HttpMessageHandler` fake → `Unavailable`, nunca propaga (sad path)
 - [ ] `IdeUruguayAddressProviderClientTests`: respuesta tardía que excede el timeout de 5s → `Unavailable` (usa un timeout inyectable en el constructor para no esperar 5s reales en el test, mismo truco que `NsfwSpyContentScanner`)
 - [ ] `IdeUruguayAddressProviderClientTests`: respuesta 200 válida → `Success` con los datos deserializados
@@ -384,3 +384,28 @@ selección de sugerencia, verificado manualmente en el navegador.
   aceptando la ubicación por GPS (dirección precompletada), y crear un mural con el proveedor externo
   inalcanzable (cortando red o apuntando `AddressProvider:BaseUrl` a un host inválido) para confirmar
   que el fallback manual aparece y el registro no queda bloqueado.
+
+## Evidencia TDD
+
+Los 3 bloques de este ticket **no siguieron TDD estricto** (tests-primero, rojo→verde documentado
+por commit). Se implementó código y tests juntos por bloque, y se verificó al cierre de CODE que la
+suite completa quedaba en verde (312/312: 135 backend + 177 frontend) y sin regresiones. Hallazgo de
+`daw-module-verifier` en la ronda 1 de VERIFY (`docs/daw/reports/verify-FEAT-011.md`); el usuario
+confirmó explícitamente documentar la ausencia de TDD en vez de reconstruir un historial rojo→verde
+que no existió.
+
+## Loop correctivo (VERIFY ronda 1 → CODE)
+
+- **AC-18** — el autocomplete no indicaba "sin resultados" al usuario (el signal se vaciaba pero el
+  template no mostraba ningún mensaje). Fix: nuevo signal privado `addressSearchResolved` (distingue
+  "todavía no busqué nada" de "busqué y no hubo resultados", evitando que una dirección precompletada
+  por GPS dispare el mensaje sin que el usuario haya buscado nada) + computed `addressNoResults` +
+  mensaje visible (`data-testid="address-no-results"`) en `create-mural-form.component.html`. 2 tests
+  agregados/reforzados en `create-mural-form.component.spec.ts` (verifican el DOM real, no solo el
+  signal, y cubren la regresión del caso GPS).
+- **Decisiones de diseño no especificadas** (limpiar `addressProviderUnavailable` tras un `search()`
+  exitoso; limpiar `manualLocationRequired` al seleccionar una sugerencia) — confirmadas por el
+  usuario como comportamiento deseado, sin cambios de código.
+- WARNs no bloqueantes aceptados sin acción: cobertura del `@for` de sugerencias a nivel de DOM
+  (AC-17), spec de Block 1 desactualizado sobre 400 vs. 422 en `reverse` (el código y el test están
+  bien, el texto de este spec ya lo corrige), rama `query.trim().length === 0` sin test dedicado.

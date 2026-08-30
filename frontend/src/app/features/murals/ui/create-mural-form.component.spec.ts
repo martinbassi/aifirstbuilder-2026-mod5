@@ -545,8 +545,10 @@ describe('CreateMuralFormComponent', () => {
   });
 
   // Required test 3: search() sin coincidencias muestra el estado "sin resultados" sin marcar
-  // addressProviderUnavailable (AC-18).
-  it('search() sin coincidencias muestra el estado "sin resultados" sin marcar addressProviderUnavailable', async () => {
+  // addressProviderUnavailable (AC-18). Verifica el DOM real, no solo el signal — el hallazgo del
+  // loop correctivo de VERIFY fue justamente que el signal se vaciaba pero nada se lo indicaba al
+  // usuario en pantalla.
+  it('search() sin coincidencias muestra el mensaje de "sin resultados" en el DOM sin marcar addressProviderUnavailable', async () => {
     vi.useFakeTimers();
     try {
       stubGeolocation(geolocationService, 'unsupported');
@@ -559,12 +561,41 @@ describe('CreateMuralFormComponent', () => {
 
       component.onAddressQueryChange(titleInputEvent('Dirección inexistente'));
       vi.advanceTimersByTime(300);
+      fixture.detectChanges();
 
       expect(component.addressSuggestions()).toEqual([]);
       expect(component.addressProviderUnavailable()).toBe(false);
+      const noResultsMessage = fixture.nativeElement.querySelector(
+        '[data-testid="address-no-results"]',
+      );
+      expect(noResultsMessage).toBeTruthy();
+      expect(noResultsMessage.textContent).toContain('No encontramos direcciones que coincidan');
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  // Regresión del fix de AC-18: una dirección precompletada por GPS/reverse geocoding nunca pasó
+  // por el pipeline de búsqueda (el usuario no escribió nada) — no debe mostrar "sin resultados"
+  // antes de que el usuario efectivamente busque algo.
+  it('una dirección precompletada por GPS no muestra "sin resultados" antes de que el usuario busque', async () => {
+    stubGeolocation(geolocationService, 'success', { latitude: -34.9, longitude: -56.16 });
+    addressService.reverseGeocode.mockReturnValue(
+      of({ address: 'Av. 18 de Julio 1234', latitude: -34.9, longitude: -56.16 }),
+    );
+
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await flushGeolocation(fixture);
+    fixture.detectChanges();
+
+    expect(component.addressQuery()).toBe('Av. 18 de Julio 1234');
+    expect(component.addressSuggestions()).toEqual([]);
+    const noResultsMessage = fixture.nativeElement.querySelector(
+      '[data-testid="address-no-results"]',
+    );
+    expect(noResultsMessage).toBeNull();
   });
 
   // Required test 4: search() con error 503 setea addressProviderUnavailable y revela los inputs
@@ -591,6 +622,11 @@ describe('CreateMuralFormComponent', () => {
       const longitudeInput = fixture.nativeElement.querySelector('[data-testid="longitude-input"]');
       expect(latitudeInput).toBeTruthy();
       expect(longitudeInput).toBeTruthy();
+      // El mensaje de "sin resultados" (AC-18) es un caso distinto de "proveedor caído" (AC-19) —
+      // no deben mostrarse juntos.
+      expect(
+        fixture.nativeElement.querySelector('[data-testid="address-no-results"]'),
+      ).toBeNull();
 
       // El resto del formulario sigue disponible.
       const photoUpload = fixture.nativeElement.querySelector('[data-testid="photo-upload"]');

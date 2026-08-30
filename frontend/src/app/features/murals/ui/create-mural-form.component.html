@@ -64,6 +64,11 @@
             </nz-auto-option>
           }
         </nz-autocomplete>
+        @if (addressNoResults()) {
+          <div class="address-no-results" data-testid="address-no-results">
+            No encontramos direcciones que coincidan.
+          </div>
+        }
       </nz-form-control>
     </nz-form-item>
 
