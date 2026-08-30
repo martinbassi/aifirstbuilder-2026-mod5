@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons-angular/icons';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
 import {
+  AddressesClient,
   AuthClient,
   DiscoveryClient,
   ModerationClient,
@@ -193,6 +194,7 @@ describe('routes — estructura anidada del shell (Block 5)', () => {
         DiscoveryClient,
         MuralsClient,
         ModerationClient,
+        AddressesClient,
         provideNzIcons(LAYOUT_ICONS),
       ],
     });
