@@ -51,10 +51,21 @@ export const appConfig: ApplicationConfig = {
     // Rehidrata sessionStore.user() (rol) desde GET /api/auth/session al arrancar, antes de que el
     // router resuelva cualquier ruta protegida (FEAT-007, NFR-04/AC-07/AC-08).
     provideAppInitializer(rehydrateSessionOnStartup),
-    // Backend local de desarrollo (Block 1, perfil `https` de launchSettings.json). Sin un archivo
-    // de environments todavía (no lo introdujo Block 2) — mover a `environment.ts` es trabajo de un
-    // futuro ticket que agregue configuración por entorno real (staging/producción).
-    { provide: API_BASE_URL, useValue: 'https://localhost:7126' },
+    // Resuelve dinámicamente según el host desde el que se sirvió el frontend (FEAT-012 Block 2).
+    // Accedido desde localhost (flujo normal, con o sin scripts/dev-lan.sh corriendo) resuelve
+    // exactamente igual que antes: el backend local HTTPS de desarrollo (Block 1, perfil `https` de
+    // launchSettings.json), FR-02/AC-09. Accedido desde la IP de LAN que sirvió la página (un
+    // dispositivo de la red local, vía scripts/dev-lan.sh) resuelve al backend HTTP de esa misma IP
+    // en el puerto 5267, FR-05/AC-02. Sin un archivo de environments todavía (no lo introdujo este
+    // bloque) — mover a `environment.ts` es trabajo de un futuro ticket que agregue configuración
+    // por entorno real (staging/producción).
+    {
+      provide: API_BASE_URL,
+      useFactory: () =>
+        window.location.hostname === 'localhost'
+          ? 'https://localhost:7126'
+          : `http://${window.location.hostname}:5267`,
+    },
     AuthClient,
     ModerationClient,
     // Pre-existing gap fixed here (FEAT-001c Block 6, spec-flagged): MuralsClient was used by
