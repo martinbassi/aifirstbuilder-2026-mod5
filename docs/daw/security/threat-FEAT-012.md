@@ -6,7 +6,7 @@ Referencia: `docs/daw/specs/spec-FEAT-012.md`.
 
 1. Kestrel escuchando en `http://0.0.0.0:5267` (además de `https://localhost:7126`, que se
    preserva) cuando corre `scripts/dev-lan.sh`.
-2. `Program.cs`: `app.UseHttpsRedirection()` saltea condicionalmente si `LAN_MODE=true`.
+2. `Program.cs`: `app.UseHttpsRedirection()` saltea condicionalmente si `LanMode=true`.
 3. CORS: origen adicional agregado dinámicamente vía env var (`Cors__AllowedOrigins__1`).
 4. CSP de desarrollo (`index.development.html`): `connect-src` extendido con `http://*:5267`.
 5. `scripts/dev-lan.sh` (nuevo) — orquesta ambos procesos en la máquina del desarrollador.
