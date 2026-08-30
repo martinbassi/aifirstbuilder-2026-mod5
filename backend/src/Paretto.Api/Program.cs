@@ -9,6 +9,7 @@ using Paretto.Api.Common.Behaviors;
 using Paretto.Api.Common.Middleware;
 using Paretto.Infrastructure.Auth;
 using Paretto.Infrastructure.Data;
+using Paretto.Infrastructure.Geocoding;
 using Paretto.Infrastructure.Moderation;
 using Paretto.Infrastructure.Security;
 using Paretto.Infrastructure.Storage;
@@ -100,6 +101,19 @@ builder.Services.AddScoped<IBlobStorageService, AzureBlobStorageService>();
 builder.Services.AddScoped<INsfwClassifier, NsfwSpyClassifier>();
 builder.Services.AddScoped<INsfwContentScanner, NsfwSpyContentScanner>();
 
+// Block 1 (FEAT-011): dedicated typed client for the external address provider
+// (direcciones.ide.uy). "Dedicated" is the point (threat model R4) — AddHttpClient<TClient,
+// TImplementation> never shares a DelegatingHandler with the rest of the API, so no session
+// cookie/token can leak to this third party; it only ever transports q/lat/lng. BaseAddress always
+// https:// (threat model R2, tampering in transit) and fixed by configuration, never derived from
+// user input (threat model R5, SSRF discarded by design). Timeout = 5s bounds the outbound call so
+// a slow/unresponsive free provider cannot exhaust backend threads/connections (threat model R1).
+builder.Services.AddHttpClient<IAddressProviderClient, IdeUruguayAddressProviderClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["AddressProvider:BaseUrl"]!);
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
 // Block 7 (LogoutCommandHandler) needs IHttpContextAccessor to read the raw token off the current
 // request's Authorization header. Contrary to a common misconception, ASP.NET Core does NOT
 // register IHttpContextAccessor by default just from AddControllers() — it is opt-in and must be
@@ -137,6 +151,20 @@ builder.Services.AddRateLimiter(options =>
     // GlobalLimiter above (100 req/min). Both apply on the same endpoint; the stricter one (20) is
     // the one that limits in practice.
     options.AddPolicy("discovery", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    // Block 1 (FEAT-011), mitigation R1 of the address threat model
+    // (docs/daw/security/threat-FEAT-011.md): same scheme as "discovery" — the external provider is
+    // free and key-less, so limiting our own outbound abuse towards it is as important as limiting
+    // inbound abuse of our own backend.
+    options.AddPolicy("addresses", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions

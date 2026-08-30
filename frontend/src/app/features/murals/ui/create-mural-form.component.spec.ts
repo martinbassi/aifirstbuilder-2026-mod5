@@ -1,9 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { provideNzIconsTesting } from 'ng-zorro-antd/icon/testing';
+import { NzNotificationService } from 'ng-zorro-antd/notification';
 import { NzUploadFile } from 'ng-zorro-antd/upload';
 import { Subject, of, throwError } from 'rxjs';
-import { CreateMuralResponse } from '../../../core/api-client/api-client.generated';
+import { AddressSuggestionDto, CreateMuralResponse } from '../../../core/api-client/api-client.generated';
 import { GeolocationService } from '../../../shared/geolocation.service';
+import { AddressService, AddressSuggestion } from '../data/address.service';
 import { MuralService } from '../data/mural.service';
 import { CreateMuralFormComponent } from './create-mural-form.component';
 
@@ -76,16 +78,25 @@ async function flushGeolocation(fixture: { detectChanges: () => void }): Promise
 describe('CreateMuralFormComponent', () => {
   let muralService: { create: ReturnType<typeof vi.fn> };
   let geolocationService: { getCurrentPosition: ReturnType<typeof vi.fn> };
+  let addressService: { search: ReturnType<typeof vi.fn>; reverseGeocode: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     muralService = { create: vi.fn() };
     geolocationService = { getCurrentPosition: vi.fn() };
+    // Default: sin resultados / sin match — cada test de Block 3 sobreescribe lo que necesita.
+    // Ambos métodos deben existir en TODOS los tests (incluso los que no tocan direcciones), porque
+    // `requestGeolocation()` siempre invoca `reverseGeocode()` tras un GPS exitoso (spec Block 3).
+    addressService = {
+      search: vi.fn().mockReturnValue(of([])),
+      reverseGeocode: vi.fn().mockReturnValue(of(null)),
+    };
 
     TestBed.configureTestingModule({
       imports: [CreateMuralFormComponent],
       providers: [
         { provide: MuralService, useValue: muralService },
         { provide: GeolocationService, useValue: geolocationService },
+        { provide: AddressService, useValue: addressService },
         // nz-upload-list con nzListType="picture" renderiza incondicionalmente sus íconos (upload
         // button, delete, picture/file placeholder) — sin un registro de íconos, NzIconService
         // lanza IconNotFoundError apenas se hace detectChanges(). provideNzIconsTesting() registra
@@ -120,7 +131,10 @@ describe('CreateMuralFormComponent', () => {
     expect(result).toBe(false);
     expect(component.fileList()).toHaveLength(1);
     expect(component.fileList()[0].thumbUrl).toBeTruthy();
-    expect(component.fileError()).toBeNull();
+    // `fileError` es `signal<boolean>(false)` desde el commit 1965e1b (reemplazó el alert inline
+    // por un toast de NzNotificationService) — este test verificaba el contrato viejo
+    // (`string | null`), desactualizado.
+    expect(component.fileError()).toBe(false);
     const previewImg: HTMLImageElement = fixture.nativeElement.querySelector(
       '[data-testid="photo-upload"] img',
     );
@@ -141,7 +155,9 @@ describe('CreateMuralFormComponent', () => {
     fixture.detectChanges();
 
     expect(result).toBe(false);
-    expect(component.fileError()).toBe('El archivo no puede superar los 10 MB.');
+    // Ver comentario del test anterior: `fileError` es boolean desde 1965e1b, el mensaje ahora se
+    // muestra por `NzNotificationService`, no en el signal.
+    expect(component.fileError()).toBe(true);
     expect(component.fileList()).toHaveLength(0);
     const previewImg = fixture.nativeElement.querySelector('[data-testid="photo-upload"] img');
     expect(previewImg).toBeFalsy();
@@ -164,7 +180,8 @@ describe('CreateMuralFormComponent', () => {
     fixture.detectChanges();
 
     expect(result).toBe(false);
-    expect(component.fileError()).toBe('El archivo debe ser una imagen JPEG, PNG o WebP.');
+    // Ver comentario de los dos tests anteriores.
+    expect(component.fileError()).toBe(true);
     expect(component.fileList()).toHaveLength(0);
   });
 
@@ -241,7 +258,12 @@ describe('CreateMuralFormComponent', () => {
     expect(submitButton.disabled).toBe(false);
   });
 
-  // Required test 6: envío exitoso → mensaje de confirmación visible (AC-12).
+  // Required test 6: envío exitoso → notificación de confirmación (AC-12).
+  //
+  // Test desactualizado corregido (no el código): el commit 1965e1b reemplazó el `nz-alert`
+  // inline (`data-testid="success-message"`) por un toast de `NzNotificationService` — este test
+  // seguía buscando el elemento viejo, que ya no existe en el HTML. Se verifica el contrato nuevo
+  // (la notificación se dispara con el mensaje esperado) en vez de reintroducir el DOM removido.
   it('muestra el mensaje de confirmación tras un envío exitoso', async () => {
     stubGeolocation(geolocationService, 'success', { latitude: -34.6, longitude: -58.4 });
     muralService.create.mockReturnValue(
@@ -253,6 +275,9 @@ describe('CreateMuralFormComponent', () => {
     fixture.detectChanges();
     await flushGeolocation(fixture);
 
+    const notificationService = TestBed.inject(NzNotificationService);
+    const createSpy = vi.spyOn(notificationService, 'create');
+
     const validFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
     component.beforeUpload(asUploadFile(validFile));
     component.onTitleChange(titleInputEvent('Mural de prueba'));
@@ -261,15 +286,24 @@ describe('CreateMuralFormComponent', () => {
     component.submit();
     fixture.detectChanges();
 
-    const successEl: HTMLElement = fixture.nativeElement.querySelector(
-      '[data-testid="success-message"]',
+    expect(createSpy).toHaveBeenCalledWith(
+      'success',
+      'Notificación',
+      expect.stringContaining('pendiente de revisión'),
     );
-    expect(successEl).toBeTruthy();
-    expect(successEl.textContent).toContain('pendiente de revisión');
   });
 
   // Required test 7: envío fallido → foto y ubicación se conservan, "Reintentar" vuelve a enviar
   // sin pedir datos de nuevo (AC-11).
+  //
+  // Regresión de 1965e1b corregida en este bloque: el commit sacó del HTML el bloque
+  // `@if (errorMessage(); as message)` con `data-testid="retry-button"`, dejando sin forma de
+  // disparar `retry()` desde la UI aunque el método siguiera existiendo. Ahora el error de guardado
+  // se muestra vía `NzNotificationService.template()` (consistente con el resto del rediseño de
+  // 1965e1b, que ya usa notificaciones para éxito/rechazo) con un botón de acción dentro de la
+  // notificación (mismo testid). `NzNotificationService` renderiza en un overlay de CDK adjunto a
+  // `document.body`, fuera del árbol del componente — el botón se busca en `document`, no en
+  // `fixture.nativeElement`.
   it('conserva foto y ubicación tras un envío fallido y reintenta sin pedir datos de nuevo', async () => {
     stubGeolocation(geolocationService, 'success', { latitude: -34.6, longitude: -58.4 });
     muralService.create
@@ -293,12 +327,15 @@ describe('CreateMuralFormComponent', () => {
     expect(component.selectedFile()).toBe(validFile);
     expect(component.latitude()).toBe(-34.6);
     expect(component.longitude()).toBe(-58.4);
-    const retryButton: HTMLButtonElement = fixture.nativeElement.querySelector(
+    const retryButton: HTMLButtonElement | null = document.querySelector(
       '[data-testid="retry-button"]',
     );
     expect(retryButton).toBeTruthy();
 
-    retryButton.click();
+    const notificationService = TestBed.inject(NzNotificationService);
+    const createSpy = vi.spyOn(notificationService, 'create');
+
+    retryButton!.click();
     fixture.detectChanges();
 
     expect(muralService.create).toHaveBeenCalledTimes(2);
@@ -308,10 +345,14 @@ describe('CreateMuralFormComponent', () => {
       latitude: -34.6,
       longitude: -58.4,
     });
-    const successEl: HTMLElement = fixture.nativeElement.querySelector(
-      '[data-testid="success-message"]',
+    // Mismo cambio de contrato que el test 6: el reintento exitoso confirma vía notificación, no
+    // vía un `data-testid="success-message"` en el DOM del componente (ver comentario del test 6).
+    expect(component.errorMessage()).toBeNull();
+    expect(createSpy).toHaveBeenCalledWith(
+      'success',
+      'Notificación',
+      expect.stringContaining('pendiente de revisión'),
     );
-    expect(successEl).toBeTruthy();
   });
 
   // Required test (Block 2, AC-02): reemplazar el archivo revoca el thumbUrl anterior antes de
@@ -363,7 +404,8 @@ describe('CreateMuralFormComponent', () => {
 
     expect(component.fileList()).toHaveLength(0);
     expect(component.selectedFile()).toBeNull();
-    expect(component.fileError()).toBeNull();
+    // Ver comentario de los tests de fileError más arriba (contrato boolean desde 1965e1b).
+    expect(component.fileError()).toBe(false);
     const submitButton: HTMLButtonElement = fixture.nativeElement.querySelector(
       '[data-testid="submit-button"]',
     );
@@ -446,5 +488,271 @@ describe('CreateMuralFormComponent', () => {
 
     expect(() => fixture.destroy()).not.toThrow();
     expect(revokeSpy).not.toHaveBeenCalled();
+  });
+
+  // ── spec-FEAT-011 Block 3: campo de dirección con autocomplete ──────────────────────────────
+
+  // Required test 1: escribir en el campo de dirección dispara search() tras el debounce de
+  // 300ms, no antes (NFR-04/AC-17).
+  it('escribir en el campo de dirección dispara search() tras el debounce de 300ms, no antes', async () => {
+    vi.useFakeTimers();
+    try {
+      stubGeolocation(geolocationService, 'unsupported');
+
+      const fixture = TestBed.createComponent(CreateMuralFormComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+      await flushGeolocation(fixture);
+
+      component.onAddressQueryChange(titleInputEvent('Av. 18 de Julio'));
+      expect(addressService.search).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(299);
+      expect(addressService.search).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1);
+      expect(addressService.search).toHaveBeenCalledWith('Av. 18 de Julio');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Required test 2: seleccionar una sugerencia setea latitude/longitude y llama a
+  // setCoordinatesInMap() (AC-05/AC-21).
+  it('seleccionar una sugerencia setea latitude/longitude y llama a setCoordinatesInMap()', async () => {
+    // GPS exitoso: garantiza que el `div#location-preview` que `setCoordinatesInMap()` necesita
+    // ya está en el DOM (rama `@else` del template) antes de seleccionar la sugerencia.
+    stubGeolocation(geolocationService, 'success', { latitude: -34.6, longitude: -58.4 });
+
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await flushGeolocation(fixture);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const setCoordinatesSpy = vi.spyOn(component as any, 'setCoordinatesInMap');
+
+    const suggestion: AddressSuggestion = new AddressSuggestionDto({
+      address: 'Av. 18 de Julio 1234',
+      latitude: -34.9,
+      longitude: -56.16,
+    });
+    component.onAddressSuggestionSelected(suggestion);
+
+    expect(component.latitude()).toBe(-34.9);
+    expect(component.longitude()).toBe(-56.16);
+    expect(setCoordinatesSpy).toHaveBeenCalledWith({ latitude: -34.9, longitude: -56.16 });
+  });
+
+  // Required test 3: search() sin coincidencias muestra el estado "sin resultados" sin marcar
+  // addressProviderUnavailable (AC-18). Verifica el DOM real, no solo el signal — el hallazgo del
+  // loop correctivo de VERIFY fue justamente que el signal se vaciaba pero nada se lo indicaba al
+  // usuario en pantalla.
+  it('search() sin coincidencias muestra el mensaje de "sin resultados" en el DOM sin marcar addressProviderUnavailable', async () => {
+    vi.useFakeTimers();
+    try {
+      stubGeolocation(geolocationService, 'unsupported');
+      addressService.search.mockReturnValue(of([]));
+
+      const fixture = TestBed.createComponent(CreateMuralFormComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+      await flushGeolocation(fixture);
+
+      component.onAddressQueryChange(titleInputEvent('Dirección inexistente'));
+      vi.advanceTimersByTime(300);
+      fixture.detectChanges();
+
+      expect(component.addressSuggestions()).toEqual([]);
+      expect(component.addressProviderUnavailable()).toBe(false);
+      const noResultsMessage = fixture.nativeElement.querySelector(
+        '[data-testid="address-no-results"]',
+      );
+      expect(noResultsMessage).toBeTruthy();
+      expect(noResultsMessage.textContent).toContain('No encontramos direcciones que coincidan');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Regresión del fix de AC-18: una dirección precompletada por GPS/reverse geocoding nunca pasó
+  // por el pipeline de búsqueda (el usuario no escribió nada) — no debe mostrar "sin resultados"
+  // antes de que el usuario efectivamente busque algo.
+  it('una dirección precompletada por GPS no muestra "sin resultados" antes de que el usuario busque', async () => {
+    stubGeolocation(geolocationService, 'success', { latitude: -34.9, longitude: -56.16 });
+    addressService.reverseGeocode.mockReturnValue(
+      of({ address: 'Av. 18 de Julio 1234', latitude: -34.9, longitude: -56.16 }),
+    );
+
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await flushGeolocation(fixture);
+    fixture.detectChanges();
+
+    expect(component.addressQuery()).toBe('Av. 18 de Julio 1234');
+    expect(component.addressSuggestions()).toEqual([]);
+    const noResultsMessage = fixture.nativeElement.querySelector(
+      '[data-testid="address-no-results"]',
+    );
+    expect(noResultsMessage).toBeNull();
+  });
+
+  // Required test 4: search() con error 503 setea addressProviderUnavailable y revela los inputs
+  // manuales de lat/lng, sin bloquear el resto del formulario (AC-19, sad path).
+  it('search() con error 503 setea addressProviderUnavailable y revela los inputs manuales de lat/lng', async () => {
+    vi.useFakeTimers();
+    try {
+      stubGeolocation(geolocationService, 'unsupported');
+      addressService.search.mockReturnValue(
+        throwError(() => ({ status: 503, message: 'El servicio de direcciones no está disponible.' })),
+      );
+
+      const fixture = TestBed.createComponent(CreateMuralFormComponent);
+      const component = fixture.componentInstance;
+      fixture.detectChanges();
+      await flushGeolocation(fixture);
+
+      component.onAddressQueryChange(titleInputEvent('Av. 18 de Julio'));
+      vi.advanceTimersByTime(300);
+      fixture.detectChanges();
+
+      expect(component.addressProviderUnavailable()).toBe(true);
+      const latitudeInput = fixture.nativeElement.querySelector('[data-testid="latitude-input"]');
+      const longitudeInput = fixture.nativeElement.querySelector('[data-testid="longitude-input"]');
+      expect(latitudeInput).toBeTruthy();
+      expect(longitudeInput).toBeTruthy();
+      // El mensaje de "sin resultados" (AC-18) es un caso distinto de "proveedor caído" (AC-19) —
+      // no deben mostrarse juntos.
+      expect(
+        fixture.nativeElement.querySelector('[data-testid="address-no-results"]'),
+      ).toBeNull();
+
+      // El resto del formulario sigue disponible.
+      const photoUpload = fixture.nativeElement.querySelector('[data-testid="photo-upload"]');
+      expect(photoUpload).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Required test 5: con permiso de geolocalización otorgado, reverseGeocode() exitoso precompleta
+  // el campo de dirección (AC-03).
+  it('con permiso de geolocalización otorgado, reverseGeocode() exitoso precompleta el campo de dirección', async () => {
+    stubGeolocation(geolocationService, 'success', { latitude: -34.9, longitude: -56.16 });
+    addressService.reverseGeocode.mockReturnValue(
+      of({ address: 'Av. 18 de Julio 1234', latitude: -34.9, longitude: -56.16 }),
+    );
+
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await flushGeolocation(fixture);
+    fixture.detectChanges();
+
+    expect(addressService.reverseGeocode).toHaveBeenCalledWith(-34.9, -56.16);
+    expect(component.addressQuery()).toBe('Av. 18 de Julio 1234');
+  });
+
+  // Required test 6: con permiso de geolocalización otorgado pero reverseGeocode() con error 503,
+  // el flujo GPS sigue funcionando (lat/lng seteados, mapa con pin) sin precompletar el texto
+  // (sad path).
+  it('con reverseGeocode() en error 503 el flujo GPS sigue funcionando sin precompletar el texto', async () => {
+    stubGeolocation(geolocationService, 'success', { latitude: -34.9, longitude: -56.16 });
+    addressService.reverseGeocode.mockReturnValue(
+      throwError(() => ({ status: 503, message: 'El servicio de direcciones no está disponible.' })),
+    );
+
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await flushGeolocation(fixture);
+    fixture.detectChanges();
+
+    expect(component.latitude()).toBe(-34.9);
+    expect(component.longitude()).toBe(-56.16);
+    expect(component.addressQuery()).toBe('');
+    // El error de reverseGeocode durante el flujo GPS NO es el mismo caso que un error de
+    // search(): no debe marcar el fallback manual (spec Block 3, error handling table).
+    expect(component.addressProviderUnavailable()).toBe(false);
+    const mapContainer = fixture.nativeElement.querySelector('#location-preview');
+    expect(mapContainer).toBeTruthy();
+  });
+
+  // Required test 7: con permiso de geolocalización otorgado pero reverseGeocode() devuelve null
+  // (sin match), el campo de dirección queda vacío y el mapa igual muestra el pin de GPS
+  // (sad path).
+  it('con reverseGeocode() devolviendo null el campo de dirección queda vacío y el mapa muestra el pin de GPS', async () => {
+    stubGeolocation(geolocationService, 'success', { latitude: -34.9, longitude: -56.16 });
+    addressService.reverseGeocode.mockReturnValue(of(null));
+
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await flushGeolocation(fixture);
+    fixture.detectChanges();
+
+    expect(component.addressQuery()).toBe('');
+    expect(component.latitude()).toBe(-34.9);
+    expect(component.longitude()).toBe(-56.16);
+    const mapContainer = fixture.nativeElement.querySelector('#location-preview');
+    expect(mapContainer).toBeTruthy();
+  });
+
+  // Required test 8: con permiso de geolocalización denegado, se muestra el fallback manual por
+  // manualLocationRequired (comportamiento existente, regresión).
+  it('con geolocalización denegada se muestra el fallback manual por manualLocationRequired (regresión)', async () => {
+    stubGeolocation(geolocationService, 'denied');
+
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await flushGeolocation(fixture);
+
+    expect(component.manualLocationRequired()).toBe(true);
+    expect(component.addressProviderUnavailable()).toBe(false);
+    const latitudeInput = fixture.nativeElement.querySelector('[data-testid="latitude-input"]');
+    const longitudeInput = fixture.nativeElement.querySelector('[data-testid="longitude-input"]');
+    expect(latitudeInput).toBeTruthy();
+    expect(longitudeInput).toBeTruthy();
+    // El campo de dirección con autocomplete sigue disponible incluso con el fallback manual
+    // revelado (spec Block 3: ambos caminos coexisten).
+    const addressInput = fixture.nativeElement.querySelector('[data-testid="address-input"]');
+    expect(addressInput).toBeTruthy();
+  });
+
+  // Required test 9: canSubmit() sigue validando los rangos de lat/lng sin importar el origen del
+  // valor (regresión).
+  it('canSubmit() sigue validando los rangos de lat/lng sin importar el origen del valor (regresión)', async () => {
+    stubGeolocation(geolocationService, 'unsupported');
+
+    const fixture = TestBed.createComponent(CreateMuralFormComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    await flushGeolocation(fixture);
+
+    const validFile = new File(['x'], 'wall.jpg', { type: 'image/jpeg' });
+    component.beforeUpload(asUploadFile(validFile));
+    component.onTitleChange(titleInputEvent('Mural de prueba'));
+
+    const withinRange: AddressSuggestion = new AddressSuggestionDto({
+      address: 'Av. 18 de Julio 1234',
+      latitude: -34.9,
+      longitude: -56.16,
+    });
+    component.onAddressSuggestionSelected(withinRange);
+    fixture.detectChanges();
+
+    expect(component.canSubmit()).toBe(true);
+
+    const outOfRange: AddressSuggestion = new AddressSuggestionDto({
+      address: 'Fuera de rango',
+      latitude: 999,
+      longitude: 999,
+    });
+    component.onAddressSuggestionSelected(outOfRange);
+    fixture.detectChanges();
+
+    expect(component.canSubmit()).toBe(false);
   });
 });

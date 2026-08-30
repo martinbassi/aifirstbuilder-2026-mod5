@@ -15,6 +15,171 @@ import { HttpClient, HttpHeaders, HttpResponse, HttpResponseBase } from '@angula
 export const API_BASE_URL = new InjectionToken<string>('API_BASE_URL');
 
 @Injectable()
+export class AddressesClient {
+    private http: HttpClient;
+    private baseUrl: string;
+    protected jsonParseReviver: ((key: string, value: any) => any) | undefined = undefined;
+
+    constructor(@Inject(HttpClient) http: HttpClient, @Optional() @Inject(API_BASE_URL) baseUrl?: string) {
+        this.http = http;
+        this.baseUrl = baseUrl ?? "";
+    }
+
+    /**
+     * @param q (optional) 
+     * @return OK
+     */
+    searchAddresses(q?: string | undefined): Observable<SearchAddressesResponse> {
+        let url_ = this.baseUrl + "/api/addresses/search?";
+        if (q === null)
+            throw new globalThis.Error("The parameter 'q' cannot be null.");
+        else if (q !== undefined)
+            url_ += "q=" + encodeURIComponent("" + q) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processSearchAddresses(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processSearchAddresses(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<SearchAddressesResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<SearchAddressesResponse>;
+        }));
+    }
+
+    protected processSearchAddresses(response: HttpResponseBase): Observable<SearchAddressesResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = SearchAddressesResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ProblemDetails.fromJS(resultData400);
+            return throwException("Bad Request", status, _responseText, _headers, result400);
+            }));
+        } else if (status === 401) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result401: any = null;
+            let resultData401 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result401 = ProblemDetails.fromJS(resultData401);
+            return throwException("Unauthorized", status, _responseText, _headers, result401);
+            }));
+        } else if (status === 503) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("Service Unavailable", status, _responseText, _headers);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @param lat (optional) 
+     * @param lng (optional) 
+     * @return OK
+     */
+    reverseGeocodeAddress(lat?: number | undefined, lng?: number | undefined): Observable<ReverseGeocodeResponse> {
+        let url_ = this.baseUrl + "/api/addresses/reverse?";
+        if (lat === null)
+            throw new globalThis.Error("The parameter 'lat' cannot be null.");
+        else if (lat !== undefined)
+            url_ += "lat=" + encodeURIComponent("" + lat) + "&";
+        if (lng === null)
+            throw new globalThis.Error("The parameter 'lng' cannot be null.");
+        else if (lng !== undefined)
+            url_ += "lng=" + encodeURIComponent("" + lng) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processReverseGeocodeAddress(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processReverseGeocodeAddress(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<ReverseGeocodeResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<ReverseGeocodeResponse>;
+        }));
+    }
+
+    protected processReverseGeocodeAddress(response: HttpResponseBase): Observable<ReverseGeocodeResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = ReverseGeocodeResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status === 400) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result400: any = null;
+            let resultData400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result400 = ProblemDetails.fromJS(resultData400);
+            return throwException("Bad Request", status, _responseText, _headers, result400);
+            }));
+        } else if (status === 401) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result401: any = null;
+            let resultData401 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result401 = ProblemDetails.fromJS(resultData401);
+            return throwException("Unauthorized", status, _responseText, _headers, result401);
+            }));
+        } else if (status === 503) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("Service Unavailable", status, _responseText, _headers);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+}
+
+@Injectable()
 export class AuthClient {
     private http: HttpClient;
     private baseUrl: string;
@@ -793,6 +958,50 @@ export class MuralsClient {
     }
 }
 
+export class AddressSuggestionDto implements IAddressSuggestionDto {
+    address?: string | undefined;
+    latitude?: number;
+    longitude?: number;
+
+    constructor(data?: IAddressSuggestionDto) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.address = _data["address"];
+            this.latitude = _data["latitude"];
+            this.longitude = _data["longitude"];
+        }
+    }
+
+    static fromJS(data: any): AddressSuggestionDto {
+        data = typeof data === 'object' ? data : {};
+        let result = new AddressSuggestionDto();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["address"] = this.address;
+        data["latitude"] = this.latitude;
+        data["longitude"] = this.longitude;
+        return data;
+    }
+}
+
+export interface IAddressSuggestionDto {
+    address?: string | undefined;
+    latitude?: number;
+    longitude?: number;
+}
+
 export class CreateMuralResponse implements ICreateMuralResponse {
     id?: string;
     status?: string | undefined;
@@ -1363,6 +1572,86 @@ export class RegisterUserResponse implements IRegisterUserResponse {
 export interface IRegisterUserResponse {
     id?: string;
     username?: string | undefined;
+}
+
+export class ReverseGeocodeResponse implements IReverseGeocodeResponse {
+    suggestion?: AddressSuggestionDto;
+
+    constructor(data?: IReverseGeocodeResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.suggestion = _data["suggestion"] ? AddressSuggestionDto.fromJS(_data["suggestion"]) : undefined as any;
+        }
+    }
+
+    static fromJS(data: any): ReverseGeocodeResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new ReverseGeocodeResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["suggestion"] = this.suggestion ? this.suggestion.toJSON() : undefined as any;
+        return data;
+    }
+}
+
+export interface IReverseGeocodeResponse {
+    suggestion?: AddressSuggestionDto;
+}
+
+export class SearchAddressesResponse implements ISearchAddressesResponse {
+    suggestions?: AddressSuggestionDto[] | undefined;
+
+    constructor(data?: ISearchAddressesResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            if (Array.isArray(_data["suggestions"])) {
+                this.suggestions = [] as any;
+                for (let item of _data["suggestions"])
+                    this.suggestions!.push(AddressSuggestionDto.fromJS(item));
+            }
+        }
+    }
+
+    static fromJS(data: any): SearchAddressesResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new SearchAddressesResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        if (Array.isArray(this.suggestions)) {
+            data["suggestions"] = [];
+            for (let item of this.suggestions)
+                data["suggestions"].push(item ? item.toJSON() : undefined as any);
+        }
+        return data;
+    }
+}
+
+export interface ISearchAddressesResponse {
+    suggestions?: AddressSuggestionDto[] | undefined;
 }
 
 export interface FileParameter {

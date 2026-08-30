@@ -47,3 +47,18 @@
   border-radius: 8px;
   overflow: hidden;
 }
+
+/* spec-FEAT-011 Block 3: oculta (sin desmontar) la confirmación de ubicación cuando el fallback
+   manual está activo — ver comentario en el HTML sobre por qué `#location-preview` no puede ir
+   detrás de un `@if` estructural. */
+.location-preview-hidden {
+  display: none;
+}
+
+/* spec-FEAT-011 Block 3 (loop correctivo VERIFY, AC-18): indicación visible de "sin resultados"
+   en el autocomplete de direcciones. */
+.address-no-results {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #999;
+}

@@ -32,6 +32,7 @@ import {
 import { registerLocaleData } from '@angular/common';
 import en from '@angular/common/locales/en';
 import {
+  AddressesClient,
   API_BASE_URL,
   AuthClient,
   DiscoveryClient,
@@ -64,6 +65,11 @@ export const appConfig: ApplicationConfig = {
     // DiscoveryClient was used by DiscoveryService but never registered here, causing NG0201 on
     // /discover as soon as it loaded.
     DiscoveryClient,
+    // Same class of bug as MuralsClient/DiscoveryClient above, caught here before it shipped
+    // (FEAT-011 Block 3 module-verifier, full-suite run): AddressesClient is used by
+    // AddressService but was never registered here, which would have thrown NG0201 as soon as
+    // CreateMuralFormComponent (which injects AddressService) loaded on /murals/new.
+    AddressesClient,
     provideNzI18n(en_US),
     // Íconos usados por nz-alert (mensajes de error de los formularios de auth, Block 8).
     provideNzIcons([

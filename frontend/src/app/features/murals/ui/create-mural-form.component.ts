@@ -1,25 +1,40 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnDestroy,
   OnInit,
+  TemplateRef,
   computed,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzAutocompleteModule } from 'ng-zorro-antd/auto-complete';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzUploadChangeParam, NzUploadFile, NzUploadModule } from 'ng-zorro-antd/upload';
 import { ApiError } from '../../../core/http/api-error';
 import { GeolocationCoordinates, GeolocationService } from '../../../shared/geolocation.service';
+import { AddressService, AddressSuggestion } from '../data/address.service';
 import { CreateMuralRequest, MuralService } from '../data/mural.service';
-import { NzNotificationService } from 'ng-zorro-antd/notification';
+import { NzNotificationComponent, NzNotificationService } from 'ng-zorro-antd/notification';
 import { Router } from '@angular/router';
 import * as L from 'leaflet';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
+import {
+  Subject,
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  of,
+  switchMap,
+  tap,
+} from 'rxjs';
 
 /** Same allowlist the backend accepts (Block 4) — this check is UX-only feedback, never the
  * authority: `file.type` is client-controlled and trivially spoofable. The real gate is the
@@ -31,6 +46,9 @@ const MIN_LATITUDE = -90;
 const MAX_LATITUDE = 90;
 const MIN_LONGITUDE = -180;
 const MAX_LONGITUDE = 180;
+/** NFR-04 (spec-FEAT-011 Block 3): debounce del campo de dirección antes de llamar a
+ * `address.service.ts#search`. */
+const ADDRESS_SEARCH_DEBOUNCE_MS = 300;
 const TILE_LAYER_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_LAYER_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -58,6 +76,7 @@ L.Icon.Default.mergeOptions({
   imports: [
     FormsModule,
     NzButtonModule,
+    NzAutocompleteModule,
     NzFormModule,
     NzIconModule,
     NzInputModule,
@@ -71,8 +90,18 @@ L.Icon.Default.mergeOptions({
 export class CreateMuralFormComponent implements OnInit, OnDestroy {
   private readonly muralService = inject(MuralService);
   private readonly geolocationService = inject(GeolocationService);
+  private readonly addressService = inject(AddressService);
   private readonly notification = inject(NzNotificationService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+
+  /** Template usado por `NzNotificationService.template()` (AC-11) — contiene el botón
+   * `data-testid="retry-button"` que dispara `retry()`. Se resuelve una única vez, tras el primer
+   * render de la vista; `submit()` solo lo usa desde el handler de error, que jamás corre antes de
+   * eso. */
+  private readonly retryNotificationTemplate = viewChild.required<
+    TemplateRef<{ $implicit: NzNotificationComponent; data: unknown }>
+  >('retryNotificationTemplate');
 
   readonly selectedFile = signal<File | null>(null);
   /** UX-only inline feedback for the file selector — see `ALLOWED_PHOTO_TYPES` above. */
@@ -89,6 +118,39 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
   /** True once geolocation is known to be unavailable/denied — reveals the manual inputs without
    * interrupting the rest of the form (FR-06/AC-04). */
   readonly manualLocationRequired = signal(false);
+
+  /** Texto libre del campo de dirección (spec-FEAT-011 Block 3). Se precompleta por reverse
+   * geocoding tras un GPS exitoso, o al seleccionar una sugerencia del autocomplete. */
+  readonly addressQuery = signal<string>('');
+  /** Sugerencias vigentes del autocomplete (AC-17/AC-18). */
+  readonly addressSuggestions = signal<AddressSuggestion[]>([]);
+  /** True una vez que el pipeline de autocomplete resolvió una búsqueda con texto no vacío
+   * (`search()` completó, con o sin coincidencias). Distingue "todavía no busqué nada" —el estado
+   * inicial, o una dirección precompletada por GPS/reverse geocoding que nunca pasó por este
+   * pipeline— de "busqué y no hubo resultados" (AC-18); sin esta señal, `addressNoResults`
+   * mostraría el mensaje incorrectamente en esos casos. Se resetea a `false` en cada tecla nueva
+   * (`onAddressQueryChange`) para no dejar el mensaje pegado mientras el debounce todavía corre. */
+  private readonly addressSearchResolved = signal(false);
+  /** True cuando `address.service.ts#search` devolvió un error de proveedor caído (503, AC-19) —
+   * señal DELIBERADAMENTE separada de `manualLocationRequired`: una es "GPS denegado", la otra "el
+   * proveedor de direcciones externo no responde"; el template necesita distinguirlas para mostrar
+   * el mensaje correcto (hallazgo del arch-auditor documentado en el spec). */
+  readonly addressProviderUnavailable = signal(false);
+
+  /** Alimenta el pipeline de autocomplete (debounce 300ms, NFR-04) desde `onAddressQueryChange`. */
+  private readonly addressQuery$ = new Subject<string>();
+
+  /** True cuando una búsqueda ya resuelta no trajo coincidencias (AC-18) — el proveedor respondió
+   * (nunca junto con `addressProviderUnavailable`, que ya tiene su propio mensaje) y el usuario
+   * efectivamente escribió algo (nunca en el estado inicial ni con una dirección precompletada por
+   * GPS que todavía no pasó por el pipeline de búsqueda). */
+  readonly addressNoResults = computed(
+    () =>
+      this.addressSearchResolved() &&
+      this.addressQuery().trim().length > 0 &&
+      this.addressSuggestions().length === 0 &&
+      !this.addressProviderUnavailable(),
+  );
 
   readonly submitting = signal(false);
   readonly successMessage = signal<string | null>(null);
@@ -120,6 +182,36 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.requestGeolocation();
+
+    // AC-17/AC-18/AC-19/NFR-04: debounce 300ms + distinctUntilChanged antes de golpear
+    // `address.service.ts#search`. Una consulta vacía no llega al servicio (corta con `of([])`,
+    // input validation del spec Block 3). Un 503 del proveedor no propaga como excepción no
+    // manejada: revela el fallback manual en vez de romper el resto del formulario (AC-19).
+    this.addressQuery$
+      .pipe(
+        debounceTime(ADDRESS_SEARCH_DEBOUNCE_MS),
+        distinctUntilChanged(),
+        switchMap((query) => {
+          if (query.trim().length === 0) {
+            return of<AddressSuggestion[]>([]);
+          }
+          return this.addressService.search(query).pipe(
+            // Asunción (el spec no lo especifica): una búsqueda exitosa después de una previa
+            // marcada `Unavailable` confirma que el proveedor volvió — se limpia la señal para no
+            // dejar el fallback manual pegado indefinidamente tras una falla transitoria.
+            tap(() => this.addressProviderUnavailable.set(false)),
+            catchError(() => {
+              this.addressProviderUnavailable.set(true);
+              return of<AddressSuggestion[]>([]);
+            }),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((suggestions) => {
+        this.addressSuggestions.set(suggestions);
+        this.addressSearchResolved.set(true);
+      });
   }
 
   /**
@@ -210,6 +302,38 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
     this.longitude.set(this.parseNumberInput(event));
   }
 
+  /** Alimenta el pipeline de autocomplete de dirección (spec-FEAT-011 Block 3, NFR-04). */
+  onAddressQueryChange(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.addressQuery.set(value);
+    this.addressSearchResolved.set(false);
+    this.addressQuery$.next(value);
+  }
+
+  /** Selección de una sugerencia del autocomplete (AC-05/AC-21): setea `latitude`/`longitude` (lo
+   * que `submit()` envía no cambia) y reutiliza `setCoordinatesInMap()`, el mismo método privado ya
+   * usado desde `requestGeolocation()`.
+   *
+   * Asunción (el spec no lo especifica): también limpia `manualLocationRequired`. El div
+   * `#location-preview` que `setCoordinatesInMap()` necesita solo existe en el DOM cuando NINGÚN
+   * fallback manual está activo (ver template) — si el usuario denegó el GPS y luego resuelve la
+   * ubicación eligiendo una dirección, ya no tiene sentido seguir mostrando el fallback manual de
+   * lat/lng: la dirección seleccionada es una ubicación válida y resuelta. `addressProviderUnavailable`
+   * no se toca: seleccionar una sugerencia implica que el proveedor SÍ respondió. */
+  onAddressSuggestionSelected(suggestion: AddressSuggestion): void {
+    const latitude = suggestion.latitude ?? null;
+    const longitude = suggestion.longitude ?? null;
+
+    this.latitude.set(latitude);
+    this.longitude.set(longitude);
+    this.addressQuery.set(suggestion.address ?? '');
+
+    if (latitude !== null && longitude !== null) {
+      this.manualLocationRequired.set(false);
+      this.setCoordinatesInMap({ latitude, longitude });
+    }
+  }
+
   submit(): void {
     if (!this.canSubmit()) {
       return;
@@ -246,6 +370,12 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
       error: (error: ApiError) => {
         this.submitting.set(false);
         this.errorMessage.set(error.message);
+        // AC-11: el guardado fallido se muestra vía notificación (consistente con el resto del
+        // rediseño de la UI que ya usa `NzNotificationService` para éxito/rechazo) pero con un
+        // botón de acción (`data-testid="retry-button"`) que dispara `retry()` sin volver a pedir
+        // foto/ubicación — `nzDuration: 0` para que la notificación no se autocierre antes de que
+        // el usuario pueda actuar sobre ella.
+        this.notification.template(this.retryNotificationTemplate(), { nzDuration: 0 });
       },
     });
   }
@@ -265,6 +395,22 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
         this.longitude.set(coordinates.longitude);
 
         this.setCoordinatesInMap(coordinates);
+
+        // FR-04/AC-03: precompletar el campo de dirección por reverse geocoding. Un 503 del
+        // proveedor (AC-19) o un `null` (sin match) NO bloquean el flujo GPS — el usuario ya tiene
+        // lat/lng y el mapa ya muestra el pin, simplemente no hay texto legible que precompletar.
+        // A diferencia del pipeline de `search()`, esto nunca setea `addressProviderUnavailable`:
+        // ese signal es exclusivo del autocomplete (spec Block 3).
+        this.addressService.reverseGeocode(coordinates.latitude, coordinates.longitude).subscribe({
+          next: (suggestion) => {
+            if (suggestion?.address) {
+              this.addressQuery.set(suggestion.address);
+            }
+          },
+          error: () => {
+            // Proveedor caído durante el flujo GPS — no-op intencional, ver comentario arriba.
+          },
+        });
       },
       () => {
         this.manualLocationRequired.set(true);
@@ -273,6 +419,12 @@ export class CreateMuralFormComponent implements OnInit, OnDestroy {
   }
 
   private setCoordinatesInMap(coordinates: GeolocationCoordinates): void {
+    // spec-FEAT-011 Block 3 reutiliza este método desde dos orígenes (GPS y selección de
+    // sugerencia) — a diferencia de antes (una única llamada posible, desde `requestGeolocation`),
+    // ahora puede invocarse más de una vez sobre el mismo `#location-preview`. Leaflet lanza si se
+    // llama `L.map()` dos veces sobre el mismo contenedor sin liberar el anterior primero.
+    this.map?.remove();
+
     this.map = L.map('location-preview', {
       center: [coordinates.latitude, coordinates.longitude],
       zoom: 16,

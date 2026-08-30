@@ -34,7 +34,75 @@
       </nz-form-control>
     </nz-form-item>
 
-    @if (manualLocationRequired()) {
+    <!-- spec-FEAT-011 Block 3: reemplaza los inputs crudos de lat/lng como entrada primaria por un
+         campo de dirección con autocomplete. El texto de las sugerencias/reverse geocoding viene
+         del proveedor externo — se renderiza SIEMPRE por interpolación/binding de Angular, nunca
+         [innerHTML]/bypassSecurityTrustHtml (mitigación de threat modeling del spec). -->
+    <nz-form-item>
+      <nz-form-label nzFor="mural-address">Dirección</nz-form-label>
+      <nz-form-control>
+        <input
+          nz-input
+          id="mural-address"
+          [value]="addressQuery()"
+          (input)="onAddressQueryChange($event)"
+          [nzAutocomplete]="addressAutocomplete"
+          placeholder="Buscar una dirección..."
+          data-testid="address-input"
+        />
+        <nz-autocomplete
+          #addressAutocomplete
+          (selectionChange)="onAddressSuggestionSelected($event.nzValue)"
+        >
+          @for (suggestion of addressSuggestions(); track suggestion) {
+            <nz-auto-option
+              [nzValue]="suggestion"
+              [nzLabel]="suggestion.address ?? ''"
+              data-testid="address-suggestion"
+            >
+              {{ suggestion.address }}
+            </nz-auto-option>
+          }
+        </nz-autocomplete>
+        @if (addressNoResults()) {
+          <div class="address-no-results" data-testid="address-no-results">
+            No encontramos direcciones que coincidan.
+          </div>
+        }
+      </nz-form-control>
+    </nz-form-item>
+
+    <!-- `#location-preview` se renderiza SIEMPRE (nunca detrás de un `@if` estructural) —
+         `setCoordinatesInMap()` (spec-FEAT-011 Block 3) ahora se invoca desde dos orígenes (GPS y
+         selección de sugerencia) y necesita el contenedor ya presente en el DOM en el mismo tick
+         síncrono en que se llama; si el div solo apareciera condicionalmente al revertir
+         `manualLocationRequired`, Leaflet fallaría con "Map container not found" porque Angular
+         todavía no re-renderizó el template en ese punto. Ocultarlo (sin desmontarlo) cuando el
+         fallback manual está activo evita ese problema de raíz. -->
+    <nz-form-item [class.location-preview-hidden]="manualLocationRequired() || addressProviderUnavailable()">
+      <nz-form-label nzFor="location-preview">Confirmación de la ubicación</nz-form-label>
+      @if (!manualLocationRequired() && !addressProviderUnavailable()) {
+        <nz-alert
+          nzType="info"
+          nzMessage="Estás aquí?"
+          nzDescription="Detectamos tu ubicación automáticamente. En caso de que no sea correcta, puedes ingresarla manualmente o buscar una dirección."
+          nzShowIcon
+        />
+      }
+      <div id="location-preview" class="location-preview"></div>
+    </nz-form-item>
+
+    @if (manualLocationRequired() || addressProviderUnavailable()) {
+      <nz-alert
+        nzType="warning"
+        [nzMessage]="
+          manualLocationRequired()
+            ? 'No pudimos obtener tu ubicación'
+            : 'El servicio de direcciones no está disponible'
+        "
+        nzShowIcon
+        data-testid="location-fallback-alert"
+      />
       <nz-form-item>
         <nz-form-label nzFor="mural-latitude" nzRequired>Latitud</nz-form-label>
         <nz-form-control>
@@ -63,26 +131,6 @@
           />
         </nz-form-control>
       </nz-form-item>
-    } @else {
-      <nz-form-item>
-        <nz-form-label nzFor="location-preview">Confirmación de la ubicación</nz-form-label>
-        <nz-alert
-          nzType="info"
-          nzMessage="Estás aquí?"
-          nzDescription="Detectamos tu ubicación automáticamente. En caso de que no sea correcta, puedes ingresarla manualmente."
-          nzShowIcon
-        />
-        <!--<nz-form-control>
-          <input
-            nz-input
-            id="mural-location"
-            [value]="'Obteniendo ubicación...' "
-            disabled
-            data-testid="location-input"
-          />
-        </nz-form-control> -->
-        <div id="location-preview" class="location-preview"></div>
-      </nz-form-item>
     }
 
     <button
@@ -97,3 +145,23 @@
     </button>
   </form>
 </div>
+
+<!-- AC-11: contenido de la notificación de error de guardado (NzNotificationService.template()).
+     Mismo testid que la versión previa basada en nz-alert, para minimizar el cambio de contrato de
+     test. `errorMessage()` viene del backend (mensaje ya validado del lado servidor), se interpola
+     con `{{ }}`, nunca [innerHTML]. -->
+<ng-template #retryNotificationTemplate>
+  <div class="retry-notification">
+    <p>{{ errorMessage() }}</p>
+    <button
+      nz-button
+      nzType="primary"
+      type="button"
+      (click)="retry()"
+      [nzLoading]="submitting()"
+      data-testid="retry-button"
+    >
+      Reintentar
+    </button>
+  </div>
+</ng-template>
